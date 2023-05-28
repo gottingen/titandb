@@ -1,6 +1,6 @@
-# titan-redis
+# titandb
 
-titan-redis is a disk redis engine based on rocksdb and I make it wisc -key an provide redis interface.
+titandb is a disk redis engine based on rocksdb and I make it wisc -key an provide redis interface.
 
 **build**
 ```shell
