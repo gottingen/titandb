@@ -36,3 +36,10 @@ carbin_cc_binary(
         DEPS titandb::titandb ${CARBIN_DEPS_LINK}
         COPTS ${USER_CXX_FLAGS}
 )
+
+carbin_cc_binary(
+        NAME strings_example
+        SOURCES strings_example.cc
+        DEPS titandb::titandb ${CARBIN_DEPS_LINK}
+        COPTS ${USER_CXX_FLAGS}
+)
