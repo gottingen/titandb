@@ -15,32 +15,39 @@
 //
 
 #include <thread>
+#include <memory>
+#include "titandb/db.h"
+#include "turbo/format/fmt/printf.h"
+#include "turbo/files/filesystem.h"
 
-#include "titandb/tedis.h"
-
-using namespace tedis;
+using namespace titandb;
 
 int main() {
-    tedis::Tedis db;
-    TedisOptions tds_options;
-    tds_options.options.create_if_missing = true;
-    tedis::Status s = db.Open(tds_options, "./db");
-    if (s.ok()) {
+    std::unique_ptr<titandb::Config> config(new titandb::Config());
+    config->db_dir = "testdb";
+    config->backup_dir = "testdb/backup";
+    config->rocks_db.compression = rocksdb::CompressionType::kNoCompression;
+    config->rocks_db.write_buffer_size = 1;
+    config->rocks_db.block_size = 100;
+    std::unique_ptr<titandb::Storage> storage(new titandb::Storage(config.get()));
+    auto ss = storage->Open();
+    if (ss.ok()) {
         printf("Open success\n");
     } else {
-        printf("Open failed, error: %s\n", s.ToString().c_str());
+        printf("Open failed, error: %s\n", ss.ToString().c_str());
         return -1;
     }
+    titandb::TitanDB db(storage.get(), "th");
     // SAdd
     int32_t ret = 0;
-    std::vector<std::string> members{"MM1", "MM2", "MM3", "MM2"};
-    s = db.SAdd("SADD_KEY", members, &ret);
-    printf("SAdd return: %s, ret = %d\n", s.ToString().c_str(), ret);
+    std::vector<std::string_view> members{"MM1", "MM2", "MM3", "MM2"};
+    auto sa = db.SAdd("SADD_KEY", members);
+    printf("SAdd return: %s, ret = %d\n", sa.status().ToString().c_str(), sa.value());
 
     // SCard
     ret = 0;
-    s = db.SCard("SADD_KEY", &ret);
-    printf("SCard, return: %s, scard ret = %d\n", s.ToString().c_str(), ret);
+    auto sc = db.SCard("SADD_KEY");
+    printf("SCard, return: %s, scard ret = %d\n", sc.status().ToString().c_str(), sc.value());
 
     return 0;
 }

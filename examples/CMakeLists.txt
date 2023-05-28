@@ -22,3 +22,24 @@ carbin_cc_binary(
         COPTS ${USER_CXX_FLAGS}
 )
 ]]
+
+carbin_cc_binary(
+        NAME hashes_example
+        SOURCES hashes_example.cc
+        DEPS titandb::titandb ${CARBIN_DEPS_LINK}
+        COPTS ${USER_CXX_FLAGS}
+)
+
+carbin_cc_binary(
+        NAME sets_example
+        SOURCES sets_example.cc
+        DEPS titandb::titandb ${CARBIN_DEPS_LINK}
+        COPTS ${USER_CXX_FLAGS}
+)
+
+carbin_cc_binary(
+        NAME strings_example
+        SOURCES strings_example.cc
+        DEPS titandb::titandb ${CARBIN_DEPS_LINK}
+        COPTS ${USER_CXX_FLAGS}
+)
