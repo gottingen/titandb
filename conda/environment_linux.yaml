@@ -1,0 +1,14 @@
+name: titandb-dev
+channels:
+  - conda-forge
+  - defaults
+  - titan-search
+dependencies:
+  - gcc =8.5 # [linux]
+  - gxx =8.5 # [linux]
+  - sysroot_linux-64=2.17 # [linux]
+  - turbo
+  - rocksdb
+  - gtest
+  - gmock
+  - benchmark
