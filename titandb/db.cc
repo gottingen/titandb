@@ -14,7 +14,7 @@
 //
 
 #include "titandb/db.h"
-#include "turbo/format/fmt/format.h"
+#include "turbo/format/str_format.h"
 
 namespace titandb {
     TitanDB::TitanDB(Storage *s, const std::string_view &ns) : _storage(s), _ns(ns.data(), ns.size()),
@@ -36,7 +36,7 @@ namespace titandb {
         auto s = storage->Open();
         if (!s.ok()) {
             std::cout << "Failed to open the storage, encounter error: " << s.message() << std::endl;
-            return turbo::UnavailableError(fmt::format("Failed to open the storage, encounter error: {}", s.message()));
+            return turbo::UnavailableError(turbo::Format("Failed to open the storage, encounter error: {}", s.message()));
         }
         return storage;
     }

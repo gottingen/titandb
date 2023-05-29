@@ -38,7 +38,7 @@
 #include "turbo/time/clock.h"
 #include "turbo/crypto/crc32c.h"
 #include "titandb/common/unique_fd.h"
-#include "turbo/format/fmt/format.h"
+#include "turbo/format/str_format.h"
 namespace titandb {
 
     constexpr const char *kReplicationIdKey = "replication_id_";
@@ -423,7 +423,7 @@ namespace titandb {
         auto s = env_->CreateDirIfMissing(config_->db_dir);
         if (!s.ok()) {
             return turbo::UnavailableError(
-                    fmt::format("Failed to create database directory '{}'. Error: {}", config_->db_dir, s.ToString()));
+                    turbo::Format("Failed to create database directory '{}'. Error: {}", config_->db_dir, s.ToString()));
         }
 
         // Rename database directory to tmp, so we can restore if replica fails to load the checkpoint from master.
@@ -434,7 +434,7 @@ namespace titandb {
                 TURBO_LOG(ERROR) << "[storage] Failed to reopen database. Error: " << s1.message();
             }
             return turbo::UnavailableError(
-                    fmt::format("Failed to rename database directory '{}' to '{}'. Error: {}", config_->db_dir,
+                    turbo::Format("Failed to rename database directory '{}' to '{}'. Error: {}", config_->db_dir,
                                 tmp_dir, s.ToString()));
         }
 
@@ -445,7 +445,7 @@ namespace titandb {
                 TURBO_LOG(ERROR) << "[storage] Failed to reopen database. Error: " << s1.message();
             }
             return turbo::UnavailableError(
-                    fmt::format("Failed to rename checkpoint directory '{}' to '{}'. Error: {}", checkpoint_dir,
+                    turbo::Format("Failed to rename checkpoint directory '{}' to '{}'. Error: {}", checkpoint_dir,
                                 config_->db_dir, s.ToString()));
         }
 
@@ -458,7 +458,7 @@ namespace titandb {
             if (auto s1 = Open(); !s1.ok()) {
                 TURBO_LOG(ERROR) << "[storage] Failed to reopen database. Error: " << s1.message();
             }
-            return turbo::UnavailableError(fmt::format("Failed to open master checkpoint. Error: {}", s2.message()));
+            return turbo::UnavailableError(turbo::Format("Failed to open master checkpoint. Error: {}", s2.message()));
         }
 
         // Destroy the origin database
@@ -880,7 +880,7 @@ namespace titandb {
             auto s = storage->InWALBoundary(storage->checkpoint_info_.latest_seq);
             if (!s.ok()) {
                 TURBO_LOG(WARNING) << "[storage] Can't use current checkpoint, error: " << s.message();
-                return turbo::UnavailableError(fmt::format("Can't use current checkpoint, error: {}", s.message()));
+                return turbo::UnavailableError(turbo::Format("Can't use current checkpoint, error: {}", s.message()));
             }
             TURBO_LOG(INFO) << "[storage] Using current existing checkpoint";
         }
@@ -914,7 +914,7 @@ namespace titandb {
         if (!s.ok()) return s;
         auto wal_seq = iter->GetBatch().sequence;
         if (seq < wal_seq) {
-            return turbo::UnavailableError(fmt::format("checkpoint seq: {} is smaller than the WAL seq: {}", seq, wal_seq));
+            return turbo::UnavailableError(turbo::Format("checkpoint seq: {} is smaller than the WAL seq: {}", seq, wal_seq));
         }
         return turbo::OkStatus();
     }
@@ -1024,7 +1024,7 @@ namespace titandb {
         auto s = storage->env_->RenameFile(tmp_file, orig_file);
         if (!s.ok()) {
             return turbo::UnavailableError(
-                    fmt::format("unable to rename '{}' to '{}'. Error: {}", tmp_file, orig_file, s.ToString()));
+                    turbo::Format("unable to rename '{}' to '{}'. Error: {}", tmp_file, orig_file, s.ToString()));
         }
 
         return turbo::OkStatus();
