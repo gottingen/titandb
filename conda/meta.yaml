@@ -32,15 +32,15 @@ outputs:
         - {{ compiler('cxx') }}
         - sysroot_linux-64 =2.17  # [linux64]
         - turbo
-        - rocksdb
+        - titan-rocksdb
       host:
         - sysroot_linux-64 =2.17  # [linux64]
         - turbo
-        - rocksdb
+        - titan-rocksdb
       run:
         - sysroot_linux-64 =2.17  # [linux64]
         - turbo
-        - rocksdb
+        - titan-rocksdb
     test:
       commands:
         - test -f $PREFIX/lib/libtitandb.so              # [linux]
