@@ -10,11 +10,11 @@ build:
   number: {{ number }}
 
 about:
-  home: https://github.com/gottingen/titan-redis
+  home: https://github.com/gottingen/titandb
   license: Apache License 2
   license_family: APACHE
   license_file: LICENSE
-  summary: A server based on faiss serving for vector search
+  summary: redis on rocksdb
 
 source:
   git_url: ../
