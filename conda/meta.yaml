@@ -30,15 +30,15 @@ outputs:
     requirements:
       build:
         - {{ compiler('cxx') }}
-        - sysroot_linux-64 =2.17  # [linux64]
+        - sysroot_linux-64 >=2.17  # [linux64]
         - turbo
         - titan-rocksdb
       host:
-        - sysroot_linux-64 =2.17  # [linux64]
+        - sysroot_linux-64 >=2.17  # [linux64]
         - turbo
         - titan-rocksdb
       run:
-        - sysroot_linux-64 =2.17  # [linux64]
+        - sysroot_linux-64 >=2.17  # [linux64]
         - turbo
         - titan-rocksdb
     test:
