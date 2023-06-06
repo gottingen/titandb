@@ -10,11 +10,11 @@ build:
   number: {{ number }}
 
 about:
-  home: https://github.com/gottingen/titan-redis
+  home: https://github.com/gottingen/titandb
   license: Apache License 2
   license_family: APACHE
   license_file: LICENSE
-  summary: A server based on faiss serving for vector search
+  summary: redis on rocksdb
 
 source:
   git_url: ../
@@ -30,17 +30,17 @@ outputs:
     requirements:
       build:
         - {{ compiler('cxx') }}
-        - sysroot_linux-64 =2.17  # [linux64]
+        - sysroot_linux-64 >=2.17  # [linux64]
         - turbo
-        - rocksdb
+        - titan-rocksdb
       host:
-        - sysroot_linux-64 =2.17  # [linux64]
+        - sysroot_linux-64 >=2.17  # [linux64]
         - turbo
-        - rocksdb
+        - titan-rocksdb
       run:
-        - sysroot_linux-64 =2.17  # [linux64]
+        - sysroot_linux-64 >=2.17  # [linux64]
         - turbo
-        - rocksdb
+        - titan-rocksdb
     test:
       commands:
         - test -f $PREFIX/lib/libtitandb.so              # [linux]
