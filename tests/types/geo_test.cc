@@ -13,7 +13,9 @@
 // limitations under the License.
 //
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+
+#include "doctest/doctest.h"
 #include <math.h>
 
 #include <memory>
@@ -25,11 +27,8 @@ using namespace titandb;
 
 class RedisGeoTest : public TestBase {
 protected:
-    RedisGeoTest() { geo_ = std::make_unique<titandb::RedisGeo>(storage_, "geo_ns"); }
-
-    ~RedisGeoTest() override = default;
-
-    void SetUp() override {
+    RedisGeoTest() {
+        geo_ = std::make_unique<titandb::RedisGeo>(storage_, "geo_ns");
         key_ = "test_geo_key";
         fields_ = {"geo_test_key-1", "geo_test_key-2", "geo_test_key-3", "geo_test_key-4",
                    "geo_test_key-5", "geo_test_key-6", "geo_test_key-7"};
@@ -39,13 +38,16 @@ protected:
                        "s00zh0dsdy0", "s00zh0dsdy0", "zzp7u51dwf0"};
     }
 
+    ~RedisGeoTest() override = default;
+
+
     std::vector<double> longitudes_;
     std::vector<double> latitudes_;
     std::vector<std::string> geo_hashes_;
     std::unique_ptr<titandb::RedisGeo> geo_;
 };
 
-TEST_F(RedisGeoTest, Add) {
+TEST_CASE_FIXTURE(RedisGeoTest, "Add") {
     int ret = 0;
     std::vector<GeoPoint> geo_points;
     for (size_t i = 0; i < fields_.size(); i++) {
@@ -53,97 +55,97 @@ TEST_F(RedisGeoTest, Add) {
                 GeoPoint{longitudes_[i], latitudes_[i], std::string{fields_[i].data(), fields_[i].size()}});
     }
     geo_->Add(key_, geo_points, &ret);
-    EXPECT_EQ(static_cast<int>(fields_.size()), ret);
+    CHECK_EQ(static_cast<int>(fields_.size()), ret);
     std::vector<std::string> geo_hashes;
     geo_->Hash(key_, fields_, &geo_hashes);
     for (size_t i = 0; i < fields_.size(); i++) {
-        EXPECT_EQ(geo_hashes[i], geo_hashes_[i]);
+        CHECK_EQ(geo_hashes[i], geo_hashes_[i]);
     }
     geo_->Add(key_, geo_points, &ret);
-    EXPECT_EQ(ret, 0);
+    CHECK_EQ(ret, 0);
     geo_->Del(key_);
 }
 
-TEST_F(RedisGeoTest, Dist) {
+TEST_CASE_FIXTURE(RedisGeoTest, "Dist") {
     int ret = 0;
     std::vector<GeoPoint> geo_points;
     for (size_t i = 0; i < fields_.size(); i++) {
         geo_points.emplace_back(GeoPoint{longitudes_[i], latitudes_[i], std::string(fields_[i])});
     }
     geo_->Add(key_, geo_points, &ret);
-    EXPECT_EQ(fields_.size(), ret);
+    CHECK_EQ(fields_.size(), ret);
     double dist = 0.0;
     geo_->Dist(key_, fields_[2], fields_[3], &dist);
-    EXPECT_EQ(ceilf(dist), 194102);
+    CHECK_EQ(ceilf(dist), 194102);
     geo_->Del(key_);
 }
 
-TEST_F(RedisGeoTest, RedisHash) {
+TEST_CASE_FIXTURE(RedisGeoTest, "RedisHash") {
     int ret = 0;
     std::vector<GeoPoint> geo_points;
     for (size_t i = 0; i < fields_.size(); i++) {
         geo_points.emplace_back(GeoPoint{longitudes_[i], latitudes_[i], std::string(fields_[i])});
     }
     geo_->Add(key_, geo_points, &ret);
-    EXPECT_EQ(static_cast<int>(fields_.size()), ret);
+    CHECK_EQ(static_cast<int>(fields_.size()), ret);
     std::vector<std::string> geo_hashes;
     geo_->Hash(key_, fields_, &geo_hashes);
     for (size_t i = 0; i < fields_.size(); i++) {
-        EXPECT_EQ(geo_hashes[i], geo_hashes_[i]);
+        CHECK_EQ(geo_hashes[i], geo_hashes_[i]);
     }
     geo_->Del(key_);
 }
 
-TEST_F(RedisGeoTest, Pos) {
+TEST_CASE_FIXTURE(RedisGeoTest, "Pos") {
     int ret = 0;
     std::vector<GeoPoint> geo_points;
     for (size_t i = 0; i < fields_.size(); i++) {
         geo_points.emplace_back(GeoPoint{longitudes_[i], latitudes_[i], std::string(fields_[i])});
     }
     geo_->Add(key_, geo_points, &ret);
-    EXPECT_EQ(static_cast<int>(fields_.size()), ret);
+    CHECK_EQ(static_cast<int>(fields_.size()), ret);
     turbo::flat_hash_map<std::string, GeoPoint> gps;
     geo_->Pos(key_, fields_, &gps);
     for (size_t i = 0; i < fields_.size(); i++) {
-        EXPECT_EQ(gps[std::string(fields_[i])].member, std::string(fields_[i]));
-        EXPECT_EQ(geo_->EncodeGeoHash(gps[std::string(fields_[i])].longitude, gps[std::string(fields_[i])].latitude),
-                  geo_hashes_[i]);
+        CHECK_EQ(gps[std::string(fields_[i])].member, std::string(fields_[i]));
+        CHECK_EQ(geo_->EncodeGeoHash(gps[std::string(fields_[i])].longitude, gps[std::string(fields_[i])].latitude),
+                 geo_hashes_[i]);
     }
     geo_->Del(key_);
 }
 
-TEST_F(RedisGeoTest, Radius) {
+TEST_CASE_FIXTURE(RedisGeoTest, "Radius") {
     int ret = 0;
     std::vector<GeoPoint> geo_points;
     for (size_t i = 0; i < fields_.size(); i++) {
         geo_points.emplace_back(GeoPoint{longitudes_[i], latitudes_[i], std::string(fields_[i])});
     }
     geo_->Add(key_, geo_points, &ret);
-    EXPECT_EQ(static_cast<int>(fields_.size()), ret);
+    CHECK_EQ(static_cast<int>(fields_.size()), ret);
     std::vector<GeoPoint> gps;
     geo_->Radius(key_, longitudes_[0], latitudes_[0], 100000000, 100, kSortASC, std::string(), false, 1, &gps);
-    EXPECT_EQ(gps.size(), fields_.size());
+    CHECK_EQ(gps.size(), fields_.size());
     for (size_t i = 0; i < gps.size(); i++) {
-        EXPECT_EQ(gps[i].member, std::string(fields_[i]));
-        EXPECT_EQ(geo_->EncodeGeoHash(gps[i].longitude, gps[i].latitude), geo_hashes_[i]);
+        CHECK_EQ(gps[i].member, std::string(fields_[i]));
+        CHECK_EQ(geo_->EncodeGeoHash(gps[i].longitude, gps[i].latitude), geo_hashes_[i]);
     }
     geo_->Del(key_);
 }
 
-TEST_F(RedisGeoTest, RadiusByMember) {
+TEST_CASE_FIXTURE(RedisGeoTest, "RadiusByMember") {
     int ret = 0;
     std::vector<GeoPoint> geo_points;
     for (size_t i = 0; i < fields_.size(); i++) {
         geo_points.emplace_back(GeoPoint{longitudes_[i], latitudes_[i], std::string(fields_[i])});
     }
     geo_->Add(key_, geo_points, &ret);
-    EXPECT_EQ(static_cast<int>(fields_.size()), ret);
+    CHECK_EQ(static_cast<int>(fields_.size()), ret);
     std::vector<GeoPoint> gps;
     geo_->RadiusByMember(key_, fields_[0], 100000000, 100, kSortASC, std::string(), false, 1, &gps);
-    EXPECT_EQ(gps.size(), fields_.size());
+    CHECK_EQ(gps.size(), fields_.size());
     for (size_t i = 0; i < gps.size(); i++) {
-        EXPECT_EQ(gps[i].member, std::string(fields_[i]));
-        EXPECT_EQ(geo_->EncodeGeoHash(gps[i].longitude, gps[i].latitude), geo_hashes_[i]);
+        CHECK_EQ(gps[i].member, std::string(fields_[i]));
+        CHECK_EQ(geo_->EncodeGeoHash(gps[i].longitude, gps[i].latitude), geo_hashes_[i]);
     }
     geo_->Del(key_);
 }

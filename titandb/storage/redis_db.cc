@@ -24,14 +24,14 @@
 #include "turbo/strings/numbers.h"
 #include "rocksdb/iterator.h"
 #include "titandb/storage/redis_metadata.h"
-#include "turbo/time/clock.h"
+#include "turbo/times/clock.h"
 #include "turbo/strings/str_split.h"
 #include "turbo/log/logging.h"
 
 namespace titandb {
 
     RedisDB::RedisDB(titandb::Storage *storage, std::string ns) : storage_(storage), namespace_(std::move(ns)) {
-        TURBO_CHECK(storage_);
+        TLOG_CHECK(storage_);
         metadata_cf_handle_ = storage->GetCFHandle("metadata");
     }
 

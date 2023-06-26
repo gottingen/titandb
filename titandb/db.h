@@ -27,7 +27,6 @@
 #include "titandb/types/redis_set.h"
 #include "titandb/types/redis_geo.h"
 #include "titandb/types/redis_sortedint.h"
-#include "titandb/types/redis_stream.h"
 #include "titandb/storage/redis_db.h"
 #include "titandb/types/redis_list.h"
 #include "turbo/base/result_status.h"

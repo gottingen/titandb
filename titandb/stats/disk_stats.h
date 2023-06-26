@@ -25,7 +25,7 @@ namespace titandb {
     class Disk : public RedisDB {
     public:
         explicit Disk(Storage *storage, const std::string &ns) : RedisDB(storage, ns) {
-            option_.include_memtables = true;
+            option_.include_memtabtles = true;
             option_.include_files = true;
         }
 
@@ -46,8 +46,6 @@ namespace titandb {
         rocksdb::Status GetBitmapSize(const Slice &ns_key, uint64_t *key_size);
 
         rocksdb::Status GetSortedintSize(const Slice &ns_key, uint64_t *key_size);
-
-        rocksdb::Status GetStreamSize(const Slice &ns_key, uint64_t *key_size);
 
         rocksdb::Status GetKeySize(const Slice &user_key, RedisType type, uint64_t *key_size);
 

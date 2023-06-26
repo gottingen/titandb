@@ -15,7 +15,8 @@
 
 #include "titandb/common/observer_or_unique.h"
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 
 struct Counter {  // NOLINT
     explicit Counter(int *i) : i(i) { ++*i; }
@@ -29,9 +30,9 @@ TEST(ObserverOrUniquePtr, Unique) {
     int v = 0;
     {
         ObserverOrUniquePtr<Counter> unique(new Counter{&v}, ObserverOrUnique::Unique);
-        ASSERT_EQ(v, 1);
+        REQUIRE_EQ(v, 1);
     }
-    ASSERT_EQ(v, 0);
+    REQUIRE_EQ(v, 0);
 }
 
 TEST(ObserverOrUniquePtr, Observer) {
@@ -39,11 +40,11 @@ TEST(ObserverOrUniquePtr, Observer) {
     std::unique_ptr<Counter> c = nullptr;
     {
         ObserverOrUniquePtr<Counter> observer(new Counter{&v}, ObserverOrUnique::Observer);
-        ASSERT_EQ(v, 1);
+        REQUIRE_EQ(v, 1);
 
         c.reset(observer.Get());
     }
-    ASSERT_EQ(v, 1);
+    REQUIRE_EQ(v, 1);
     c.reset();
-    ASSERT_EQ(v, 0);
+    REQUIRE_EQ(v, 0);
 }

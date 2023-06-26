@@ -15,7 +15,8 @@
 
 #include "titandb/common/encoding.h"
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 #include <rocksdb/slice.h>
 
 #include <cstdint>
@@ -23,7 +24,7 @@
 #include <string>
 #include <vector>
 
-TEST(Util, EncodeAndDecodeDouble) {
+TEST_CASE("Util, EncodeAndDecodeDouble") {
     std::vector<double> values = {-1234, -100.1234, -1.2345, 0, 1.2345, 100.1234, 1234};
     std::string prev_bytes;
     for (auto value: values) {
@@ -31,23 +32,23 @@ TEST(Util, EncodeAndDecodeDouble) {
         PutDouble(&bytes, value);
         double got = DecodeDouble(bytes.data());
         if (!prev_bytes.empty()) {
-            ASSERT_LT(prev_bytes, bytes);
+            REQUIRE_LT(prev_bytes, bytes);
         }
         prev_bytes.assign(bytes);
-        ASSERT_EQ(value, got);
+        REQUIRE_EQ(value, got);
     }
 }
 
-TEST(Util, EncodeAndDecodeInt32AsVarint32) {
+TEST_CASE("Util, EncodeAndDecodeInt32AsVarint32") {
     std::vector<uint32_t> values = {200, 65000, 16700000, 4294000000};
     std::vector<size_t> encoded_sizes = {2, 3, 4, 5};
     for (size_t i = 0; i < values.size(); ++i) {
         std::string buf;
         PutVarint32(&buf, values[i]);
-        EXPECT_EQ(buf.size(), encoded_sizes[i]);
+        CHECK_EQ(buf.size(), encoded_sizes[i]);
         uint32_t result = 0;
         rocksdb::Slice s(buf);
         GetVarint32(&s, &result);
-        ASSERT_EQ(result, values[i]);
+        REQUIRE_EQ(result, values[i]);
     }
 }

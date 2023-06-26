@@ -13,7 +13,8 @@
 // limitations under the License.
 //
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 
 #include "turbo/files/filesystem.h"
 
@@ -25,7 +26,7 @@
 
 using namespace titandb;
 
-TEST(Compact, Filter) {
+TEST_CASE("Compact, Filter") {
     Config *config = new Config();
     config->db_dir = "compactdb";
     config->backup_dir = "compactdb/backup";
@@ -39,14 +40,14 @@ TEST(Compact, Filter) {
 
     auto storage = std::make_unique<Storage>(config);
     auto s = storage->Open();
-    ASSERT_TRUE(s.ok())<<s.message();
+    REQUIRE(s.ok());
 
     int ret = 0;
-    TURBO_LOG(INFO)<<"hash db init";
+    TLOG_INFO("hash db init");
     std::string ns = "test_compact";
-    ASSERT_TRUE(storage.get() != nullptr);
+    REQUIRE(storage.get() != nullptr);
     auto hash = std::make_unique<RedisHash>(storage.get(), ns);
-    TURBO_LOG(INFO)<<"hash db created";
+    TLOG_INFO("hash db created");
     std::string expired_hash_key = "expire_hash_key";
     std::string live_hash_key = "live_hash_key";
     hash->Set(expired_hash_key, "f1", "v1", &ret);
@@ -70,16 +71,16 @@ TEST(Compact, Filter) {
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         std::string user_key, user_ns;
         ExtractNamespaceKey(iter->key(), &user_ns, &user_key, storage->IsSlotIdEncoded());
-        EXPECT_EQ(user_key, live_hash_key);
+        CHECK_EQ(user_key, live_hash_key);
     }
 
     iter = new_iterator("subkey");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         InternalKey ikey(iter->key(), storage->IsSlotIdEncoded());
-        EXPECT_EQ(ikey.GetKey().ToString(), live_hash_key);
+        CHECK_EQ(ikey.GetKey().ToString(), live_hash_key);
     }
 
-    TURBO_LOG(INFO)<<"zset db init";
+    TLOG_INFO("zset db init");
     auto zset = std::make_unique<RedisZSet>(storage.get(), ns);
     std::string expired_zset_key = "expire_zset_key";
     std::vector<MemberScore> member_scores = {MemberScore{"z1", 1.1}, MemberScore{"z2", 0.4}};
@@ -93,12 +94,12 @@ TEST(Compact, Filter) {
     iter = new_iterator("default");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         InternalKey ikey(iter->key(), storage->IsSlotIdEncoded());
-        EXPECT_EQ(ikey.GetKey().ToString(), live_hash_key);
+        CHECK_EQ(ikey.GetKey().ToString(), live_hash_key);
     }
 
     iter = new_iterator("zset_score");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-        EXPECT_TRUE(false);  // never reach here
+        CHECK(false);  // never reach here
     }
 
     Slice mk_with_ttl = "mk_with_ttl";
@@ -114,12 +115,12 @@ TEST(Compact, Filter) {
         auto s_expire = hash->Expire(mk_with_ttl, 1);  // expired immediately..
 
         if (retry == 1) {
-            ASSERT_TRUE(get_res.ok());  // not expired first time
-            ASSERT_TRUE(s_expire.ok());
+            REQUIRE(get_res.ok());  // not expired first time
+            REQUIRE(s_expire.ok());
         } else {
-            ASSERT_TRUE(get_res.ok());  // expired but still return ok....
-            ASSERT_EQ(0, fieldvalues.size());
-            ASSERT_TRUE(s_expire.IsNotFound());
+            REQUIRE(get_res.ok());  // expired but still return ok....
+            REQUIRE_EQ(0, fieldvalues.size());
+            REQUIRE(s_expire.IsNotFound());
         }
         usleep(10000);
     }

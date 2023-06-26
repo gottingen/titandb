@@ -64,32 +64,32 @@ namespace titandb {
     }
 
     void EventListener::OnCompactionCompleted(rocksdb::DB *db, const rocksdb::CompactionJobInfo &ci) {
-        TURBO_LOG(INFO) << "[event_listener/compaction_completed] column family: " << ci.cf_name
+      /*  TURBO_LOG(INFO) << "[event_listener/compaction_completed] column family: " << ci.cf_name
                   << ", compaction reason: " << static_cast<int>(ci.compaction_reason)
                   << ", output compression type: " << CompressType2String(ci.compression)
                   << ", base input level(files): " << ci.base_input_level << "(" << ci.input_files.size() << ")"
                   << ", output level(files): " << ci.output_level << "(" << ci.output_files.size() << ")"
                   << ", input bytes: " << ci.stats.total_input_bytes << ", output bytes:" << ci.stats.total_output_bytes
                   << ", is_manual_compaction:" << (ci.stats.is_manual_compaction ? "yes" : "no")
-                  << ", elapsed(micro): " << ci.stats.elapsed_micros;
+                  << ", elapsed(micro): " << ci.stats.elapsed_micros;*/
         storage_->IncrCompactionCount(1);
         storage_->CheckDBSizeLimit();
     }
 
     void EventListener::OnFlushBegin(rocksdb::DB *db, const rocksdb::FlushJobInfo &fi) {
-        TURBO_LOG(INFO) << "[event_listener/flush_begin] column family: " << fi.cf_name << ", thread_id: " << fi.thread_id
-                  << ", job_id: " << fi.job_id << ", reason: " << static_cast<int>(fi.flush_reason);
+        /*TURBO_LOG(INFO) << "[event_listener/flush_begin] column family: " << fi.cf_name << ", thread_id: " << fi.thread_id
+                  << ", job_id: " << fi.job_id << ", reason: " << static_cast<int>(fi.flush_reason);*/
     }
 
     void EventListener::OnFlushCompleted(rocksdb::DB *db, const rocksdb::FlushJobInfo &fi) {
         storage_->IncrFlushCount(1);
         storage_->CheckDBSizeLimit();
-        TURBO_LOG(INFO) << "[event_listener/flush_completed] column family: " << fi.cf_name << ", thread_id: " << fi.thread_id
+        /*TURBO_LOG(INFO) << "[event_listener/flush_completed] column family: " << fi.cf_name << ", thread_id: " << fi.thread_id
                   << ", job_id: " << fi.job_id << ", file: " << fi.file_path
                   << ", reason: " << static_cast<int>(fi.flush_reason)
                   << ", is_write_slowdown: " << (fi.triggered_writes_slowdown ? "yes" : "no")
                   << ", is_write_stall: " << (fi.triggered_writes_stop ? "yes" : "no")
-                  << ", largest seqno: " << fi.largest_seqno << ", smallest seqno: " << fi.smallest_seqno;
+                  << ", largest seqno: " << fi.largest_seqno << ", smallest seqno: " << fi.smallest_seqno;*/
     }
 
     void EventListener::OnBackgroundError(rocksdb::BackgroundErrorReason reason, rocksdb::Status *bg_error) {
@@ -116,25 +116,25 @@ namespace titandb {
             storage_->SetDBInRetryableIOError(true);
         }
 
-        TURBO_LOG(ERROR) << "[event_listener/background_error] reason: " << reason_str << ", bg_error: "
-                   << bg_error->ToString();
+      //  TURBO_LOG(ERROR) << "[event_listener/background_error] reason: " << reason_str << ", bg_error: "
+        //           << bg_error->ToString();
     }
 
     void EventListener::OnTableFileDeleted(const rocksdb::TableFileDeletionInfo &info) {
-        TURBO_LOG(INFO) << "[event_listener/table_file_deleted] db: " << info.db_name << ", sst file: " << info.file_path
-                  << ", status: " << info.status.ToString();
+        //TURBO_LOG(INFO) << "[event_listener/table_file_deleted] db: " << info.db_name << ", sst file: " << info.file_path
+          //        << ", status: " << info.status.ToString();
     }
 
     void EventListener::OnStallConditionsChanged(const rocksdb::WriteStallInfo &info) {
-        TURBO_LOG(WARNING) << "[event_listener/stall_cond_changed] column family: " << info.cf_name
+        /*TURBO_LOG(WARNING) << "[event_listener/stall_cond_changed] column family: " << info.cf_name
                      << " write stall condition was changed, from " << StallConditionType2String(info.condition.prev)
-                     << " to " << StallConditionType2String(info.condition.cur);
+                     << " to " << StallConditionType2String(info.condition.cur);*/
     }
 
     void EventListener::OnTableFileCreated(const rocksdb::TableFileCreationInfo &info) {
-        TURBO_LOG(INFO) << "[event_listener/table_file_created] column family: " << info.cf_name
+        /*TURBO_LOG(INFO) << "[event_listener/table_file_created] column family: " << info.cf_name
                   << ", file path: " << info.file_path << ", file size: " << info.file_size << ", job id: "
                   << info.job_id
-                  << ", reason: " << FileCreatedReason2String(info.reason) << ", status: " << info.status.ToString();
+                  << ", reason: " << FileCreatedReason2String(info.reason) << ", status: " << info.status.ToString();*/
     }
 }  // namespace titandb

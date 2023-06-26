@@ -20,7 +20,7 @@
 #include <string>
 #include <utility>
 
-#include "turbo/time/clock.h"
+#include "turbo/times/clock.h"
 #include "titandb/types/redis_bitmap.h"
 
 namespace titandb {
@@ -34,13 +34,12 @@ namespace titandb {
         rocksdb::Status s = metadata.Decode(bytes);
         ExtractNamespaceKey(key, &ns, &user_key, stor_->IsSlotIdEncoded());
         if (!s.ok()) {
-            TURBO_LOG(WARNING) << "[compact_filter/metadata] Failed to decode,"
-                         << ", namespace: " << ns << ", key: " << user_key << ", err: " << s.ToString();
+            TLOG_WARN("[compact_filter/metadata] Failed to decode, namespace: {}, key: {}, err: {}", ns, user_key,
+                      s.ToString());
             return false;
         }
-        TURBO_DLOG(INFO) << "[compact_filter/metadata] "
-                   << "namespace: " << ns << ", key: " << user_key
-                   << ", result: " << (metadata.Expired() ? "deleted" : "reserved");
+        TLOG_INFO("[compact_filter/metadata] namespace: {}, key {}, result: {}", ns, user_key,
+                  (metadata.Expired() ? "deleted" : "reserved"));
         return metadata.Expired();
     }
 
@@ -102,9 +101,8 @@ namespace titandb {
             return rocksdb::CompactionFilter::Decision::kRemove;
         }
         if (!s.ok()) {
-            TURBO_LOG(ERROR) << "[compact_filter/subkey] Failed to get metadata"
-                       << ", namespace: " << ikey.GetNamespace().ToString() << ", key: " << ikey.GetKey().ToString()
-                       << ", err: " << s.message();
+            TLOG_ERROR("[compact_filter/subkey] Failed to get metadata, namespace: {}, key: {}, err: {}",
+                       ikey.GetNamespace().ToString(), ikey.GetKey().ToString(), s.message());
             return rocksdb::CompactionFilter::Decision::kKeep;
         }
         // bitmap will be checked in Filter
@@ -125,13 +123,14 @@ namespace titandb {
             return true;
         }
         if (!s.ok()) {
-            TURBO_LOG(ERROR) << "[compact_filter/subkey] Failed to get metadata"
-                       << ", namespace: " << ikey.GetNamespace().ToString() << ", key: " << ikey.GetKey().ToString()
-                       << ", err: " << s.message();
+            TLOG_ERROR("[compact_filter/subkey] Failed to get metadata, namespace: {}, key: {}, err: {}",
+                       ikey.GetNamespace().ToString(),
+                       ikey.GetKey().ToString(), s.message());
             return false;
         }
 
-        return IsMetadataExpired(ikey, metadata) || (metadata.Type() == kRedisBitmap && RedisBitmap::IsEmptySegment(value));
+        return IsMetadataExpired(ikey, metadata) ||
+               (metadata.Type() == kRedisBitmap && RedisBitmap::IsEmptySegment(value));
     }
 
 }  // namespace titandb

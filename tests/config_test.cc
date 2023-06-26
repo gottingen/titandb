@@ -13,7 +13,8 @@
 // limitations under the License.
 //
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 
 #include <fstream>
 #include <iostream>
@@ -29,7 +30,7 @@ TEST(Config, GetAndSet) {
   Config config;
 
   auto s = config.Load(CLIOptions(path));
-  EXPECT_FALSE(s.IsOK());
+  CHECK_FALSE(s.IsOK());
   std::map<std::string, std::string> mutable_cases = {
       {"timeout", "1000"},
       {"maxclients", "2000"},
@@ -78,23 +79,23 @@ TEST(Config, GetAndSet) {
   std::vector<std::string> values;
   for (const auto &iter : mutable_cases) {
     s = config.Set(nullptr, iter.first, iter.second);
-    ASSERT_TRUE(s.IsOK());
+    REQUIRE(s.IsOK());
     config.Get(iter.first, &values);
-    ASSERT_TRUE(s.IsOK());
-    ASSERT_EQ(values.size(), 2);
-    EXPECT_EQ(values[0], iter.first);
-    EXPECT_EQ(values[1], iter.second);
+    REQUIRE(s.IsOK());
+    REQUIRE_EQ(values.size(), 2);
+    CHECK_EQ(values[0], iter.first);
+    CHECK_EQ(values[1], iter.second);
   }
-  ASSERT_TRUE(config.Rewrite().IsOK());
+  REQUIRE(config.Rewrite().IsOK());
   s = config.Load(CLIOptions(path));
-  EXPECT_TRUE(s.IsOK());
+  CHECK(s.IsOK());
   for (const auto &iter : mutable_cases) {
     s = config.Set(nullptr, iter.first, iter.second);
-    ASSERT_TRUE(s.IsOK());
+    REQUIRE(s.IsOK());
     config.Get(iter.first, &values);
-    ASSERT_EQ(values.size(), 2);
-    EXPECT_EQ(values[0], iter.first);
-    EXPECT_EQ(values[1], iter.second);
+    REQUIRE_EQ(values.size(), 2);
+    CHECK_EQ(values[0], iter.first);
+    CHECK_EQ(values[1], iter.second);
   }
   unlink(path);
 
@@ -141,15 +142,15 @@ TEST(Config, GetRenameCommand) {
   output_file.close();
   redis::ResetCommands();
   Config config;
-  ASSERT_TRUE(config.Load(CLIOptions(path)).IsOK());
+  REQUIRE(config.Load(CLIOptions(path)).IsOK());
   std::vector<std::string> values;
   config.Get("rename-command", &values);
-  ASSERT_EQ(values[1], "KEYS KEYS_NEW");
-  ASSERT_EQ(values[3], "GET GET_NEW");
-  ASSERT_EQ(values[5], "SET SET_NEW");
-  ASSERT_EQ(values[0], "rename-command");
-  ASSERT_EQ(values[2], "rename-command");
-  ASSERT_EQ(values[4], "rename-command");
+  REQUIRE_EQ(values[1], "KEYS KEYS_NEW");
+  REQUIRE_EQ(values[3], "GET GET_NEW");
+  REQUIRE_EQ(values[5], "SET SET_NEW");
+  REQUIRE_EQ(values[0], "rename-command");
+  REQUIRE_EQ(values[2], "rename-command");
+  REQUIRE_EQ(values[4], "rename-command");
 }
 
 TEST(Config, Rewrite) {
@@ -167,12 +168,12 @@ TEST(Config, Rewrite) {
 
   redis::ResetCommands();
   Config config;
-  ASSERT_TRUE(config.Load(CLIOptions(path)).IsOK());
-  ASSERT_TRUE(config.Rewrite().IsOK());
+  REQUIRE(config.Load(CLIOptions(path)).IsOK());
+  REQUIRE(config.Rewrite().IsOK());
   // Need to re-populate the command table since it has renamed by the previous
   redis::ResetCommands();
   Config new_config;
-  ASSERT_TRUE(new_config.Load(CLIOptions(path)).IsOK());
+  REQUIRE(new_config.Load(CLIOptions(path)).IsOK());
   unlink(path);
 }
 
@@ -182,34 +183,34 @@ TEST(Namespace, Add) {
 
   Config config;
   auto s = config.Load(CLIOptions(path));
-  EXPECT_FALSE(s.IsOK());
+  CHECK_FALSE(s.IsOK());
   config.slot_id_encoded = false;
-  EXPECT_TRUE(!config.AddNamespace("ns", "t0").IsOK());
+  CHECK(!config.AddNamespace("ns", "t0").IsOK());
   config.requirepass = "foobared";
 
   std::vector<std::string> namespaces = {"n1", "n2", "n3", "n4"};
   std::vector<std::string> tokens = {"t1", "t2", "t3", "t4"};
   for (size_t i = 0; i < namespaces.size(); i++) {
-    EXPECT_TRUE(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
+    CHECK(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
   }
   for (size_t i = 0; i < namespaces.size(); i++) {
     std::string token;
     s = config.GetNamespace(namespaces[i], &token);
-    EXPECT_TRUE(s.IsOK());
-    EXPECT_EQ(token, tokens[i]);
+    CHECK(s.IsOK());
+    CHECK_EQ(token, tokens[i]);
   }
   for (size_t i = 0; i < namespaces.size(); i++) {
     s = config.AddNamespace(namespaces[i], tokens[i]);
-    EXPECT_FALSE(s.IsOK());
-    EXPECT_EQ(s.Msg(), "the token has already exists");
+    CHECK_FALSE(s.IsOK());
+    CHECK_EQ(s.Msg(), "the token has already exists");
   }
   s = config.AddNamespace("n1", "t0");
-  EXPECT_FALSE(s.IsOK());
-  EXPECT_EQ(s.Msg(), "the namespace has already exists");
+  CHECK_FALSE(s.IsOK());
+  CHECK_EQ(s.Msg(), "the namespace has already exists");
 
   s = config.AddNamespace(kDefaultNamespace, "mytoken");
-  EXPECT_FALSE(s.IsOK());
-  EXPECT_EQ(s.Msg(), "forbidden to add the default namespace");
+  CHECK_FALSE(s.IsOK());
+  CHECK_EQ(s.Msg(), "forbidden to add the default namespace");
   unlink(path);
 }
 
@@ -219,7 +220,7 @@ TEST(Namespace, Set) {
 
   Config config;
   auto s = config.Load(CLIOptions(path));
-  EXPECT_FALSE(s.IsOK());
+  CHECK_FALSE(s.IsOK());
   config.slot_id_encoded = false;
   config.requirepass = "foobared";
   std::vector<std::string> namespaces = {"n1", "n2", "n3", "n4"};
@@ -227,26 +228,26 @@ TEST(Namespace, Set) {
   std::vector<std::string> new_tokens = {"nt1", "nt2'", "nt3", "nt4"};
   for (size_t i = 0; i < namespaces.size(); i++) {
     s = config.SetNamespace(namespaces[i], tokens[i]);
-    EXPECT_FALSE(s.IsOK());
-    EXPECT_EQ(s.Msg(), "the namespace was not found");
+    CHECK_FALSE(s.IsOK());
+    CHECK_EQ(s.Msg(), "the namespace was not found");
   }
   for (size_t i = 0; i < namespaces.size(); i++) {
-    EXPECT_TRUE(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
-  }
-  for (size_t i = 0; i < namespaces.size(); i++) {
-    std::string token;
-    s = config.GetNamespace(namespaces[i], &token);
-    EXPECT_TRUE(s.IsOK());
-    EXPECT_EQ(token, tokens[i]);
-  }
-  for (size_t i = 0; i < namespaces.size(); i++) {
-    EXPECT_TRUE(config.SetNamespace(namespaces[i], new_tokens[i]).IsOK());
+    CHECK(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
   }
   for (size_t i = 0; i < namespaces.size(); i++) {
     std::string token;
     s = config.GetNamespace(namespaces[i], &token);
-    EXPECT_TRUE(s.IsOK());
-    EXPECT_EQ(token, new_tokens[i]);
+    CHECK(s.IsOK());
+    CHECK_EQ(token, tokens[i]);
+  }
+  for (size_t i = 0; i < namespaces.size(); i++) {
+    CHECK(config.SetNamespace(namespaces[i], new_tokens[i]).IsOK());
+  }
+  for (size_t i = 0; i < namespaces.size(); i++) {
+    std::string token;
+    s = config.GetNamespace(namespaces[i], &token);
+    CHECK(s.IsOK());
+    CHECK_EQ(token, new_tokens[i]);
   }
   unlink(path);
 }
@@ -257,27 +258,27 @@ TEST(Namespace, Delete) {
 
   Config config;
   auto s = config.Load(CLIOptions(path));
-  EXPECT_FALSE(s.IsOK());
+  CHECK_FALSE(s.IsOK());
   config.slot_id_encoded = false;
   config.requirepass = "foobared";
   std::vector<std::string> namespaces = {"n1", "n2", "n3", "n4"};
   std::vector<std::string> tokens = {"t1", "t2", "t3", "t4"};
   for (size_t i = 0; i < namespaces.size(); i++) {
-    EXPECT_TRUE(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
+    CHECK(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
   }
   for (size_t i = 0; i < namespaces.size(); i++) {
     std::string token;
     s = config.GetNamespace(namespaces[i], &token);
-    EXPECT_TRUE(s.IsOK());
-    EXPECT_EQ(token, tokens[i]);
+    CHECK(s.IsOK());
+    CHECK_EQ(token, tokens[i]);
   }
   for (const auto &ns : namespaces) {
     s = config.DelNamespace(ns);
-    EXPECT_TRUE(s.IsOK());
+    CHECK(s.IsOK());
     std::string token;
     s = config.GetNamespace(ns, &token);
-    EXPECT_FALSE(s.IsOK());
-    EXPECT_TRUE(token.empty());
+    CHECK_FALSE(s.IsOK());
+    CHECK(token.empty());
   }
   unlink(path);
 }
@@ -287,48 +288,48 @@ TEST(Namespace, RewriteNamespaces) {
   unlink(path);
   Config config;
   auto s = config.Load(CLIOptions(path));
-  EXPECT_FALSE(s.IsOK());
+  CHECK_FALSE(s.IsOK());
   config.requirepass = "test";
   config.backup_dir = "test";
   config.slot_id_encoded = false;
   std::vector<std::string> namespaces = {"n1", "n2", "n3", "n4"};
   std::vector<std::string> tokens = {"t1", "t2", "t3", "t4"};
   for (size_t i = 0; i < namespaces.size(); i++) {
-    EXPECT_TRUE(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
+    CHECK(config.AddNamespace(namespaces[i], tokens[i]).IsOK());
   }
-  EXPECT_TRUE(config.AddNamespace("to-be-deleted-ns", "to-be-deleted-token").IsOK());
-  EXPECT_TRUE(config.DelNamespace("to-be-deleted-ns").IsOK());
+  CHECK(config.AddNamespace("to-be-deleted-ns", "to-be-deleted-token").IsOK());
+  CHECK(config.DelNamespace("to-be-deleted-ns").IsOK());
 
   Config new_config;
   s = new_config.Load(CLIOptions(path));
-  EXPECT_TRUE(s.IsOK());
+  CHECK(s.IsOK());
   for (size_t i = 0; i < namespaces.size(); i++) {
     std::string token;
     s = new_config.GetNamespace(namespaces[i], &token);
-    EXPECT_TRUE(s.IsOK());
-    EXPECT_EQ(token, tokens[i]);
+    CHECK(s.IsOK());
+    CHECK_EQ(token, tokens[i]);
   }
 
   std::string token;
-  EXPECT_FALSE(new_config.GetNamespace("to-be-deleted-ns", &token).IsOK());
+  CHECK_FALSE(new_config.GetNamespace("to-be-deleted-ns", &token).IsOK());
   unlink(path);
 }
 
 TEST(Config, ParseConfigLine) {
-  ASSERT_EQ(*ParseConfigLine(""), ConfigKV{});
-  ASSERT_EQ(*ParseConfigLine("# hello"), ConfigKV{});
-  ASSERT_EQ(*ParseConfigLine("       #x y z "), ConfigKV{});
-  ASSERT_EQ(*ParseConfigLine("key value  "), (ConfigKV{"key", "value"}));
-  ASSERT_EQ(*ParseConfigLine("key value#x"), (ConfigKV{"key", "value"}));
-  ASSERT_EQ(*ParseConfigLine("key"), (ConfigKV{"key", ""}));
-  ASSERT_EQ(*ParseConfigLine("    key    value1   value2   "), (ConfigKV{"key", "value1   value2"}));
-  ASSERT_EQ(*ParseConfigLine(" #"), ConfigKV{});
-  ASSERT_EQ(*ParseConfigLine("  key val ue #h e l l o"), (ConfigKV{"key", "val ue"}));
-  ASSERT_EQ(*ParseConfigLine("key 'val ue'"), (ConfigKV{"key", "val ue"}));
-  ASSERT_EQ(*ParseConfigLine(R"(key ' value\'\'v a l ')"), (ConfigKV{"key", " value''v a l "}));
-  ASSERT_EQ(*ParseConfigLine(R"( key "val # hi" # hello!)"), (ConfigKV{"key", "val # hi"}));
-  ASSERT_EQ(*ParseConfigLine(R"(key "\n \r \t ")"), (ConfigKV{"key", "\n \r \t "}));
-  ASSERT_EQ(*ParseConfigLine("key ''"), (ConfigKV{"key", ""}));
+  REQUIRE_EQ(*ParseConfigLine(""), ConfigKV{});
+  REQUIRE_EQ(*ParseConfigLine("# hello"), ConfigKV{});
+  REQUIRE_EQ(*ParseConfigLine("       #x y z "), ConfigKV{});
+  REQUIRE_EQ(*ParseConfigLine("key value  "), (ConfigKV{"key", "value"}));
+  REQUIRE_EQ(*ParseConfigLine("key value#x"), (ConfigKV{"key", "value"}));
+  REQUIRE_EQ(*ParseConfigLine("key"), (ConfigKV{"key", ""}));
+  REQUIRE_EQ(*ParseConfigLine("    key    value1   value2   "), (ConfigKV{"key", "value1   value2"}));
+  REQUIRE_EQ(*ParseConfigLine(" #"), ConfigKV{});
+  REQUIRE_EQ(*ParseConfigLine("  key val ue #h e l l o"), (ConfigKV{"key", "val ue"}));
+  REQUIRE_EQ(*ParseConfigLine("key 'val ue'"), (ConfigKV{"key", "val ue"}));
+  REQUIRE_EQ(*ParseConfigLine(R"(key ' value\'\'v a l ')"), (ConfigKV{"key", " value''v a l "}));
+  REQUIRE_EQ(*ParseConfigLine(R"( key "val # hi" # hello!)"), (ConfigKV{"key", "val # hi"}));
+  REQUIRE_EQ(*ParseConfigLine(R"(key "\n \r \t ")"), (ConfigKV{"key", "\n \r \t "}));
+  REQUIRE_EQ(*ParseConfigLine("key ''"), (ConfigKV{"key", ""}));
   ASSERT_FALSE(ParseConfigLine("key \"hello "));
   ASSERT_FALSE(ParseConfigLine("key \'\\"));
   ASSERT_FALSE(ParseConfigLine("key \"hello'"));
@@ -338,11 +339,11 @@ TEST(Config, ParseConfigLine) {
 }
 
 TEST(Config, DumpConfigLine) {
-  ASSERT_EQ(DumpConfigLine({"key", "value"}), "key value");
-  ASSERT_EQ(DumpConfigLine({"key", " v a l "}), R"(key " v a l ")");
-  ASSERT_EQ(DumpConfigLine({"a", "'b"}), "a \"\\'b\"");
-  ASSERT_EQ(DumpConfigLine({"a", "x#y"}), "a \"x#y\"");
-  ASSERT_EQ(DumpConfigLine({"a", "x y"}), "a \"x y\"");
-  ASSERT_EQ(DumpConfigLine({"a", "xy"}), "a xy");
-  ASSERT_EQ(DumpConfigLine({"a", "x\n"}), "a \"x\\n\"");
+  REQUIRE_EQ(DumpConfigLine({"key", "value"}), "key value");
+  REQUIRE_EQ(DumpConfigLine({"key", " v a l "}), R"(key " v a l ")");
+  REQUIRE_EQ(DumpConfigLine({"a", "'b"}), "a \"\\'b\"");
+  REQUIRE_EQ(DumpConfigLine({"a", "x#y"}), "a \"x#y\"");
+  REQUIRE_EQ(DumpConfigLine({"a", "x y"}), "a \"x y\"");
+  REQUIRE_EQ(DumpConfigLine({"a", "xy"}), "a xy");
+  REQUIRE_EQ(DumpConfigLine({"a", "x\n"}), "a \"x\\n\"");
 }

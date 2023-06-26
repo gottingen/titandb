@@ -17,8 +17,8 @@
 
 #include <chrono>
 
-#include "turbo/strings/str_format.h"
-#include "turbo/time/clock.h"
+#include "turbo/format/str_format.h"
+#include "turbo/times/clock.h"
 
 namespace titandb {
     Stats::Stats() {
@@ -57,7 +57,7 @@ namespace titandb {
 
     int64_t Stats::GetMemoryRSS() {
         char buf[4096];
-        auto fd = UniqueFD(open(turbo::StrFormat("/proc/%d/stat", getpid()).c_str(), O_RDONLY));
+        auto fd = UniqueFD(open(turbo::Format("/proc/{}/stat", getpid()).c_str(), O_RDONLY));
         if (!fd) return 0;
         if (read(*fd, buf, sizeof(buf)) <= 0) {
             return 0;

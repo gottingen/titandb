@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "titandb/common/encoding.h"
-#include "titandb/types/redis_stream_base.h"
 
 namespace titandb {
 
@@ -206,19 +205,4 @@ namespace titandb {
         rocksdb::Status Decode(const std::string &bytes) override;
     };
 
-    class StreamMetadata : public Metadata {
-    public:
-        titandb::StreamEntryID last_generated_id;
-        titandb::StreamEntryID recorded_first_entry_id;
-        titandb::StreamEntryID max_deleted_entry_id;
-        titandb::StreamEntryID first_entry_id;
-        titandb::StreamEntryID last_entry_id;
-        uint64_t entries_added = 0;
-
-        explicit StreamMetadata(bool generate_version = true) : Metadata(kRedisStream, generate_version) {}
-
-        void Encode(std::string *dst) override;
-
-        rocksdb::Status Decode(const std::string &bytes) override;
-    };
 }  // namespace titandb

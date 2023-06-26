@@ -59,8 +59,6 @@ namespace titandb {
                 return GetSortedintSize(ns_key, key_size);
             case RedisType::kRedisZSet:
                 return GetZsetSize(ns_key, key_size);
-            case RedisType::kRedisStream:
-                return GetStreamSize(ns_key, key_size);
             default:
                 return rocksdb::Status::NotFound("Not found ", user_key);
         }
@@ -123,13 +121,6 @@ namespace titandb {
         PutFixed64(&start_buf, 0);
         return GetApproximateSizes(metadata, ns_key, storage_->GetCFHandle(kSubkeyColumnFamilyName), key_size,
                                    start_buf, start_buf);
-    }
-
-    rocksdb::Status Disk::GetStreamSize(const Slice &ns_key, uint64_t *key_size) {
-        StreamMetadata metadata(false);
-        rocksdb::Status s = RedisDB::GetMetadata(kRedisStream, ns_key, &metadata);
-        if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
-        return GetApproximateSizes(metadata, ns_key, storage_->GetCFHandle(kStreamColumnFamilyName), key_size);
     }
 
 }  // namespace titandb

@@ -25,7 +25,7 @@
 
 #include "titandb/storage/redis_slot.h"
 #include "titandb/common/encoding.h"
-#include "turbo/time/clock.h"
+#include "turbo/times/clock.h"
 
 namespace titandb {
 // 52 bit for microseconds and 11 bit for counter
@@ -337,64 +337,4 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    void StreamMetadata::Encode(std::string *dst) {
-        Metadata::Encode(dst);
-
-        PutFixed64(dst, last_generated_id.ms);
-        PutFixed64(dst, last_generated_id.seq);
-
-        PutFixed64(dst, recorded_first_entry_id.ms);
-        PutFixed64(dst, recorded_first_entry_id.seq);
-
-        PutFixed64(dst, max_deleted_entry_id.ms);
-        PutFixed64(dst, max_deleted_entry_id.seq);
-
-        PutFixed64(dst, first_entry_id.ms);
-        PutFixed64(dst, first_entry_id.seq);
-
-        PutFixed64(dst, last_entry_id.ms);
-        PutFixed64(dst, last_entry_id.seq);
-
-        PutFixed64(dst, entries_added);
-    }
-
-    rocksdb::Status StreamMetadata::Decode(const std::string &bytes) {
-        Slice input(bytes);
-        if (!GetFixed8(&input, &flags)) {
-            return rocksdb::Status::InvalidArgument(kErrMetadataTooShort);
-        }
-        if (!GetExpire(&input)) {
-            return rocksdb::Status::InvalidArgument(kErrMetadataTooShort);
-        }
-
-        if (input.size() < 8 + CommonEncodedSize()) {
-            return rocksdb::Status::InvalidArgument(kErrMetadataTooShort);
-        }
-
-        GetFixed64(&input, &version);
-        GetFixedCommon(&input, &size);
-
-        if (input.size() < 88) {
-            return rocksdb::Status::InvalidArgument(kErrMetadataTooShort);
-        }
-
-        GetFixed64(&input, &last_generated_id.ms);
-        GetFixed64(&input, &last_generated_id.seq);
-
-        GetFixed64(&input, &recorded_first_entry_id.ms);
-        GetFixed64(&input, &recorded_first_entry_id.seq);
-
-        GetFixed64(&input, &max_deleted_entry_id.ms);
-        GetFixed64(&input, &max_deleted_entry_id.seq);
-
-        GetFixed64(&input, &first_entry_id.ms);
-        GetFixed64(&input, &first_entry_id.seq);
-
-        GetFixed64(&input, &last_entry_id.ms);
-        GetFixed64(&input, &last_entry_id.seq);
-
-        GetFixed64(&input, &entries_added);
-
-        return rocksdb::Status::OK();
-    }
 }  // namespace titandb

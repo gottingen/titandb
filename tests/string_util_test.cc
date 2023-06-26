@@ -15,7 +15,8 @@
 
 #include "titandb/common/string_util.h"
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 
 #include <map>
 
@@ -33,7 +34,7 @@ TEST(StringUtil, Trim) {
     for (auto iter = cases.begin(); iter != cases.end(); iter++) {
         std::string input = iter->first;
         std::string output = titandb::Trim(input, " \t\n");
-        ASSERT_EQ(output, iter->second);
+        REQUIRE_EQ(output, iter->second);
     }
 }
 
@@ -41,12 +42,12 @@ TEST(StringUtil, Trim) {
 TEST(StringUtil, TokenizeRedisProtocol) {
     std::vector<std::string> expected = {"this", "is", "a", "test"};
     auto array = titandb::TokenizeRedisProtocol("*4\r\n$4\r\nthis\r\n$2\r\nis\r\n$1\r\na\r\n$4\r\ntest\r\n");
-    ASSERT_EQ(expected, array);
+    REQUIRE_EQ(expected, array);
 }
 
 TEST(StringUtil, HasPrefix) {
-    ASSERT_TRUE(titandb::HasPrefix("has_prefix_is_true", "has_prefix"));
+    REQUIRE(titandb::HasPrefix("has_prefix_is_true", "has_prefix"));
     ASSERT_FALSE(titandb::HasPrefix("has_prefix_is_false", "_has_prefix"));
-    ASSERT_TRUE(titandb::HasPrefix("has_prefix", "has_prefix"));
+    REQUIRE(titandb::HasPrefix("has_prefix", "has_prefix"));
     ASSERT_FALSE(titandb::HasPrefix("has", "has_prefix"));
 }

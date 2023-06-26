@@ -57,7 +57,6 @@ namespace titandb {
 
     constexpr const char *kPropagateScriptCommand = "script";
 
-    constexpr const char *kLuaFunctionPrefix = "lua_f_";
 
     class Storage {
     public:
@@ -124,7 +123,6 @@ namespace titandb {
 
         rocksdb::Status DeleteRange(const std::string &first_key, const std::string &last_key);
 
-        rocksdb::Status FlushScripts(const rocksdb::WriteOptions &options, rocksdb::ColumnFamilyHandle *cf_handle);
 
         bool WALHasNewData(rocksdb::SequenceNumber seq) { return seq <= LatestSeqNumber(); }
 
