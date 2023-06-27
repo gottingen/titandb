@@ -32,7 +32,7 @@ namespace titandb {
         std::string ns, user_key, bytes = value.ToString();
         Metadata metadata(kRedisNone, false);
         rocksdb::Status s = metadata.Decode(bytes);
-        ExtractNamespaceKey(key, &ns, &user_key, stor_->IsSlotIdEncoded());
+        ExtractNamespaceKey(key, &ns, &user_key);
         if (!s.ok()) {
             TLOG_WARN("[compact_filter/metadata] Failed to decode, namespace: {}, key: {}, err: {}", ns, user_key,
                       s.ToString());
@@ -50,7 +50,7 @@ namespace titandb {
         const auto cf_handles = stor_->GetCFHandles();
         // storage close the would delete the column family handler and DB
         if (!db || cf_handles->size() < 2) return turbo::UnavailableError("storage is closed");
-        ComposeNamespaceKey(ikey.GetNamespace(), ikey.GetKey(), &metadata_key, stor_->IsSlotIdEncoded());
+        ComposeNamespaceKey(ikey.GetNamespace(), ikey.GetKey(), &metadata_key);
 
         if (cached_key_.empty() || metadata_key != cached_key_) {
             std::string bytes;
@@ -94,7 +94,7 @@ namespace titandb {
     rocksdb::CompactionFilter::Decision
     SubKeyFilter::FilterBlobByKey(int level, const Slice &key, std::string *new_value,
                                   std::string *skip_until) const {
-        InternalKey ikey(key, stor_->IsSlotIdEncoded());
+        InternalKey ikey(key);
         Metadata metadata(kRedisNone, false);
         auto s = GetMetadata(ikey, &metadata);
         if (turbo::IsNotFound(s)) {
@@ -116,7 +116,7 @@ namespace titandb {
 
     bool SubKeyFilter::Filter(int level, const Slice &key, const Slice &value, std::string *new_value,
                               bool *modified) const {
-        InternalKey ikey(key, stor_->IsSlotIdEncoded());
+        InternalKey ikey(key);
         Metadata metadata(kRedisNone, false);
         auto s = GetMetadata(ikey, &metadata);
         if (turbo::IsNotFound(s)) {

@@ -38,7 +38,7 @@ namespace titandb {
         batch->PutLogData(log_data.Encode());
         std::string sub_key;
         for (const auto &member: members) {
-            InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, member, metadata.version).Encode(&sub_key);
             batch->Put(sub_key, Slice());
         }
         metadata.size = static_cast<uint32_t>(members.size());
@@ -65,7 +65,7 @@ namespace titandb {
         batch->PutLogData(log_data.Encode());
         std::string sub_key;
         for (const auto &member: members) {
-            InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, member, metadata.version).Encode(&sub_key);
             s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value);
             if (s.ok()) continue;
             batch->Put(sub_key, Slice());
@@ -96,7 +96,7 @@ namespace titandb {
         WriteBatchLogData log_data(kRedisSet);
         batch->PutLogData(log_data.Encode());
         for (const auto &member: members) {
-            InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, member, metadata.version).Encode(&sub_key);
             s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value);
             if (!s.ok()) continue;
             batch->Delete(sub_key);
@@ -138,8 +138,8 @@ namespace titandb {
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string prefix, next_version_prefix;
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix);
-        InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(&next_version_prefix);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix);
+        InternalKey(ns_key, "", metadata.version + 1).Encode(&next_version_prefix);
 
         rocksdb::ReadOptions read_options;
         LatestSnapShot ss(storage_);
@@ -150,7 +150,7 @@ namespace titandb {
 
         auto iter = UniqueIterator(storage_, read_options);
         for (iter->Seek(prefix); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
-            InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+            InternalKey ikey(iter->key());
             members->emplace_back(ikey.GetSubKey().ToString());
         }
         return rocksdb::Status::OK();
@@ -179,7 +179,7 @@ namespace titandb {
         read_options.snapshot = ss.GetSnapShot();
         std::string sub_key, value;
         for (const auto &member: members) {
-            InternalKey(ns_key, member, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, member, metadata.version).Encode(&sub_key);
             s = storage_->Get(read_options, sub_key, &value);
             if (!s.ok() && !s.IsNotFound()) return s;
             if (s.IsNotFound()) {
@@ -211,8 +211,8 @@ namespace titandb {
         batch->PutLogData(log_data.Encode());
 
         std::string prefix, next_version_prefix;
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix);
-        InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(&next_version_prefix);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix);
+        InternalKey(ns_key, "", metadata.version + 1).Encode(&next_version_prefix);
 
         rocksdb::ReadOptions read_options;
         LatestSnapShot ss(storage_);
@@ -223,7 +223,7 @@ namespace titandb {
 
         auto iter = UniqueIterator(storage_, read_options);
         for (iter->Seek(prefix); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
-            InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+            InternalKey ikey(iter->key());
             members->emplace_back(ikey.GetSubKey().ToString());
             if (pop) batch->Delete(iter->key());
             if (++n >= count) break;

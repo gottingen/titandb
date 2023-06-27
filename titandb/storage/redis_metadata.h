@@ -67,17 +67,15 @@ namespace titandb {
         uint64_t avg_ttl = 0;
     };
 
-    void ExtractNamespaceKey(Slice ns_key, std::string *ns, std::string *key, bool slot_id_encoded);
+    void ExtractNamespaceKey(Slice ns_key, std::string *ns, std::string *key);
 
-    void ComposeNamespaceKey(const Slice &ns, const Slice &key, std::string *ns_key, bool slot_id_encoded);
-
-    void ComposeSlotKeyPrefix(const Slice &ns, int slotid, std::string *output);
+    void ComposeNamespaceKey(const Slice &ns, const Slice &key, std::string *ns_key);
 
     class InternalKey {
     public:
-        explicit InternalKey(Slice ns_key, Slice sub_key, uint64_t version, bool slot_id_encoded);
+        explicit InternalKey(Slice ns_key, Slice sub_key, uint64_t version);
 
-        explicit InternalKey(Slice input, bool slot_id_encoded);
+        explicit InternalKey(Slice input);
 
         ~InternalKey() = default;
 
@@ -98,8 +96,6 @@ namespace titandb {
         Slice key_;
         Slice sub_key_;
         uint64_t version_;
-        uint16_t slotid_;
-        bool slot_id_encoded_;
     };
 
     constexpr uint8_t METADATA_64BIT_ENCODING_MASK = 0x80;

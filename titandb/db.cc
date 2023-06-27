@@ -71,7 +71,7 @@ namespace titandb {
         std::string end_key;
         if (ns != kDefaultNamespace) {
             std::string prefix;
-            ComposeNamespaceKey(ns, "", &prefix, false);
+            ComposeNamespaceKey(ns, "", &prefix);
             auto s = _key_db->FindKeyRangeWithPrefix(prefix, std::string(), &begin_key, &end_key);
             if (!s.ok()) {
                 if (s.IsNotFound()) {

@@ -68,11 +68,6 @@ namespace titandb {
         FindKeyRangeWithPrefix(const std::string &prefix, const std::string &prefix_end, std::string *begin,
                                std::string *end, rocksdb::ColumnFamilyHandle *cf_handle = nullptr);
 
-        rocksdb::Status ClearKeysOfSlot(const rocksdb::Slice &ns, int slot);
-
-        rocksdb::Status GetSlotKeysInfo(int slot, std::map<int, uint64_t> *slotskeys, std::vector<std::string> *keys,
-                                        int count);
-
     protected:
         titandb::Storage *storage_;
         rocksdb::ColumnFamilyHandle *metadata_cf_handle_;

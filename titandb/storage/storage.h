@@ -147,8 +147,6 @@ namespace titandb {
 
         void IncrCompactionCount(uint64_t n) { compaction_count_.fetch_add(n); }
 
-        bool IsSlotIdEncoded() { return config_->slot_id_encoded; }
-
         const Config *GetConfig() { return config_; }
 
         turbo::Status BeginTxn();

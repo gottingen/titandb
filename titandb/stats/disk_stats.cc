@@ -28,8 +28,8 @@ namespace titandb {
                                               rocksdb::ColumnFamilyHandle *column_family, uint64_t *key_size,
                                               Slice subkeyleft, Slice subkeyright) {
         std::string prefix_key, next_version_prefix_key;
-        InternalKey(ns_key, subkeyleft, metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix_key);
-        InternalKey(ns_key, subkeyright, metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(
+        InternalKey(ns_key, subkeyleft, metadata.version).Encode(&prefix_key);
+        InternalKey(ns_key, subkeyright, metadata.version + 1).Encode(
                 &next_version_prefix_key);
         auto key_range = rocksdb::Range(prefix_key, next_version_prefix_key);
         uint64_t tmp_size = 0;

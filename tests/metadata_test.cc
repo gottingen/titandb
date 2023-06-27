@@ -32,14 +32,14 @@ TEST_CASE("InternalKey, EncodeAndDecode") {
     uint64_t version = 12;
     std::string ns_key;
 
-    ComposeNamespaceKey(ns, key, &ns_key, false);
-    InternalKey ikey(ns_key, sub_key, version, false);
+    ComposeNamespaceKey(ns, key, &ns_key);
+    InternalKey ikey(ns_key, sub_key, version);
     REQUIRE_EQ(ikey.GetKey(), key);
     REQUIRE_EQ(ikey.GetSubKey(), sub_key);
     REQUIRE_EQ(ikey.GetVersion(), version);
     std::string bytes;
     ikey.Encode(&bytes);
-    InternalKey ikey1(bytes, false);
+    InternalKey ikey1(bytes);
     CHECK_EQ(ikey, ikey1);
 }
 

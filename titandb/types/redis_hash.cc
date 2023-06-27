@@ -53,7 +53,7 @@ namespace titandb {
         rocksdb::ReadOptions read_options;
         read_options.snapshot = ss.GetSnapShot();
         std::string sub_key;
-        InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+        InternalKey(ns_key, field, metadata.version).Encode(&sub_key);
         return storage_->Get(read_options, sub_key, value);
     }
 
@@ -70,7 +70,7 @@ namespace titandb {
         if (!s.ok() && !s.IsNotFound()) return s;
 
         std::string sub_key;
-        InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+        InternalKey(ns_key, field, metadata.version).Encode(&sub_key);
         if (s.ok()) {
             std::string value_bytes;
             s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value_bytes);
@@ -117,7 +117,7 @@ namespace titandb {
         if (!s.ok() && !s.IsNotFound()) return s;
 
         std::string sub_key;
-        InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+        InternalKey(ns_key, field, metadata.version).Encode(&sub_key);
         if (s.ok()) {
             std::string value_bytes;
             s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value_bytes);
@@ -173,7 +173,7 @@ namespace titandb {
         sub_keys.resize(fields.size());
         int i = 0;
         for (const auto &field: fields) {
-            InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded()).Encode(&(sub_keys[i]));
+            InternalKey(ns_key, field, metadata.version).Encode(&(sub_keys[i]));
             keys.emplace_back(sub_keys[i++]);
         }
 
@@ -210,7 +210,7 @@ namespace titandb {
 
         std::string sub_key, value;
         for (const auto &field: fields) {
-            InternalKey(ns_key, field, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, field, metadata.version).Encode(&sub_key);
             s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value);
             if (s.ok()) {
                 *ret += 1;
@@ -246,7 +246,7 @@ namespace titandb {
             bool exists = false;
 
             std::string sub_key;
-            InternalKey(ns_key, fv.field, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, fv.field, metadata.version).Encode(&sub_key);
 
             if (metadata.size > 0) {
                 std::string field_value;
@@ -290,9 +290,9 @@ namespace titandb {
 
         std::string start_member = spec.reversed ? spec.max : spec.min;
         std::string start_key, prefix_key, next_version_prefix_key;
-        InternalKey(ns_key, start_member, metadata.version, storage_->IsSlotIdEncoded()).Encode(&start_key);
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix_key);
-        InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(&next_version_prefix_key);
+        InternalKey(ns_key, start_member, metadata.version).Encode(&start_key);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix_key);
+        InternalKey(ns_key, "", metadata.version + 1).Encode(&next_version_prefix_key);
         rocksdb::ReadOptions read_options;
         LatestSnapShot ss(storage_);
         read_options.snapshot = ss.GetSnapShot();
@@ -314,7 +314,7 @@ namespace titandb {
         }
         int64_t pos = 0;
         for (; iter->Valid() && iter->key().starts_with(prefix_key); (!spec.reversed ? iter->Next() : iter->Prev())) {
-            InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+            InternalKey ikey(iter->key());
             if (spec.reversed) {
                 if (ikey.GetSubKey().ToString() < spec.min || (spec.minex && ikey.GetSubKey().ToString() == spec.min)) {
                     break;
@@ -347,8 +347,8 @@ namespace titandb {
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string prefix_key, next_version_prefix_key;
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix_key);
-        InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(&next_version_prefix_key);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix_key);
+        InternalKey(ns_key, "", metadata.version + 1).Encode(&next_version_prefix_key);
 
         rocksdb::ReadOptions read_options;
         LatestSnapShot ss(storage_);
@@ -360,12 +360,12 @@ namespace titandb {
         auto iter = UniqueIterator(storage_, read_options);
         for (iter->Seek(prefix_key); iter->Valid() && iter->key().starts_with(prefix_key); iter->Next()) {
             if (type == HashFetchType::kOnlyKey) {
-                InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+                InternalKey ikey(iter->key());
                 field_values->emplace_back(ikey.GetSubKey().ToString(), "");
             } else if (type == HashFetchType::kOnlyValue) {
                 field_values->emplace_back("", iter->value().ToString());
             } else {
-                InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+                InternalKey ikey(iter->key());
                 field_values->emplace_back(ikey.GetSubKey().ToString(), iter->value().ToString());
             }
         }

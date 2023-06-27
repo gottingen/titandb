@@ -69,13 +69,13 @@ TEST_CASE("Compact, Filter") {
     auto iter = new_iterator("metadata");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
         std::string user_key, user_ns;
-        ExtractNamespaceKey(iter->key(), &user_ns, &user_key, storage->IsSlotIdEncoded());
+        ExtractNamespaceKey(iter->key(), &user_ns, &user_key);
         CHECK_EQ(user_key, live_hash_key);
     }
 
     iter = new_iterator("subkey");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-        InternalKey ikey(iter->key(), storage->IsSlotIdEncoded());
+        InternalKey ikey(iter->key());
         CHECK_EQ(ikey.GetKey().ToString(), live_hash_key);
     }
 
@@ -84,7 +84,7 @@ TEST_CASE("Compact, Filter") {
 
     iter = new_iterator("default");
     for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-        InternalKey ikey(iter->key(), storage->IsSlotIdEncoded());
+        InternalKey ikey(iter->key());
         CHECK_EQ(ikey.GetKey().ToString(), live_hash_key);
     }
 

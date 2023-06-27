@@ -67,7 +67,7 @@ namespace titandb {
         for (const auto &elem: elems) {
             std::string index_buf, sub_key;
             PutFixed64(&index_buf, index);
-            InternalKey(ns_key, index_buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, index_buf, metadata.version).Encode(&sub_key);
             batch->Put(sub_key, elem);
             left ? --index : ++index;
         }
@@ -117,7 +117,7 @@ namespace titandb {
             std::string buf;
             PutFixed64(&buf, index);
             std::string sub_key;
-            InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, buf, metadata.version).Encode(&sub_key);
             std::string elem;
             s = storage_->Get(rocksdb::ReadOptions(), sub_key, &elem);
             if (!s.ok()) {
@@ -176,9 +176,9 @@ namespace titandb {
         uint64_t index = count >= 0 ? metadata.head : metadata.tail - 1;
         std::string buf, start_key, prefix, next_version_prefix;
         PutFixed64(&buf, index);
-        InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&start_key);
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix);
-        InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(&next_version_prefix);
+        InternalKey(ns_key, buf, metadata.version).Encode(&start_key);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix);
+        InternalKey(ns_key, "", metadata.version + 1).Encode(&next_version_prefix);
 
         bool reversed = count < 0;
         std::vector<uint64_t> to_delete_indexes;
@@ -195,7 +195,7 @@ namespace titandb {
         for (iter->Seek(start_key); iter->Valid() && iter->key().starts_with(prefix);
              !reversed ? iter->Next() : iter->Prev()) {
             if (iter->value() == elem) {
-                InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+                InternalKey ikey(iter->key());
                 Slice sub_key = ikey.GetSubKey();
                 GetFixed64(&sub_key, &index);
                 to_delete_indexes.emplace_back(index);
@@ -223,14 +223,14 @@ namespace titandb {
             reversed = left_part_len <= right_part_len;
             buf.clear();
             PutFixed64(&buf, reversed ? max_to_delete_index : min_to_delete_index);
-            InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&start_key);
+            InternalKey(ns_key, buf, metadata.version).Encode(&start_key);
             size_t processed = 0;
             for (iter->Seek(start_key); iter->Valid() && iter->key().starts_with(prefix);
                  !reversed ? iter->Next() : iter->Prev()) {
                 if (iter->value() != elem || processed >= to_delete_indexes.size()) {
                     buf.clear();
                     PutFixed64(&buf, reversed ? max_to_delete_index-- : min_to_delete_index++);
-                    InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&to_update_key);
+                    InternalKey(ns_key, buf, metadata.version).Encode(&to_update_key);
                     batch->Put(to_update_key, iter->value());
                 } else {
                     processed++;
@@ -240,7 +240,7 @@ namespace titandb {
             for (uint64_t idx = 0; idx < to_delete_indexes.size(); ++idx) {
                 buf.clear();
                 PutFixed64(&buf, reversed ? (metadata.head + idx) : (metadata.tail - 1 - idx));
-                InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&to_delete_key);
+                InternalKey(ns_key, buf, metadata.version).Encode(&to_delete_key);
                 batch->Delete(to_delete_key);
             }
             if (reversed) {
@@ -271,9 +271,9 @@ namespace titandb {
         std::string buf, start_key, prefix, next_version_prefix;
         uint64_t pivot_index = metadata.head - 1;
         PutFixed64(&buf, metadata.head);
-        InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&start_key);
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix);
-        InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(&next_version_prefix);
+        InternalKey(ns_key, buf, metadata.version).Encode(&start_key);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix);
+        InternalKey(ns_key, "", metadata.version + 1).Encode(&next_version_prefix);
 
         rocksdb::ReadOptions read_options;
         LatestSnapShot ss(storage_);
@@ -285,7 +285,7 @@ namespace titandb {
         auto iter = UniqueIterator(storage_, read_options);
         for (iter->Seek(start_key); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
             if (iter->value() == pivot) {
-                InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+                InternalKey ikey(iter->key());
                 Slice sub_key = ikey.GetSubKey();
                 GetFixed64(&sub_key, &pivot_index);
                 break;
@@ -316,12 +316,12 @@ namespace titandb {
         for (; iter->Valid() && iter->key().starts_with(prefix); !reversed ? iter->Next() : iter->Prev()) {
             buf.clear();
             PutFixed64(&buf, reversed ? --pivot_index : ++pivot_index);
-            InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&to_update_key);
+            InternalKey(ns_key, buf, metadata.version).Encode(&to_update_key);
             batch->Put(to_update_key, iter->value());
         }
         buf.clear();
         PutFixed64(&buf, new_elem_index);
-        InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&to_update_key);
+        InternalKey(ns_key, buf, metadata.version).Encode(&to_update_key);
         batch->Put(to_update_key, elem);
 
         if (reversed) {
@@ -356,7 +356,7 @@ namespace titandb {
         std::string buf;
         PutFixed64(&buf, metadata.head + index);
         std::string sub_key;
-        InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+        InternalKey(ns_key, buf, metadata.version).Encode(&sub_key);
         return storage_->Get(read_options, sub_key, elem);
     }
 
@@ -382,9 +382,9 @@ namespace titandb {
         std::string buf;
         PutFixed64(&buf, metadata.head + start);
         std::string start_key, prefix, next_version_prefix;
-        InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&start_key);
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix);
-        InternalKey(ns_key, "", metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(&next_version_prefix);
+        InternalKey(ns_key, buf, metadata.version).Encode(&start_key);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix);
+        InternalKey(ns_key, "", metadata.version + 1).Encode(&next_version_prefix);
 
         rocksdb::ReadOptions read_options;
         LatestSnapShot ss(storage_);
@@ -395,7 +395,7 @@ namespace titandb {
 
         auto iter = UniqueIterator(storage_, read_options);
         for (iter->Seek(start_key); iter->Valid() && iter->key().starts_with(prefix); iter->Next()) {
-            InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+            InternalKey ikey(iter->key());
             Slice sub_key = ikey.GetSubKey();
             uint64_t index = 0;
             GetFixed64(&sub_key, &index);
@@ -421,7 +421,7 @@ namespace titandb {
 
         std::string buf, value, sub_key;
         PutFixed64(&buf, metadata.head + index);
-        InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+        InternalKey(ns_key, buf, metadata.version).Encode(&sub_key);
         s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value);
         if (!s.ok()) {
             return s;
@@ -479,7 +479,7 @@ namespace titandb {
         std::string curr_index_buf;
         PutFixed64(&curr_index_buf, curr_index);
         std::string curr_sub_key;
-        InternalKey(ns_key, curr_index_buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&curr_sub_key);
+        InternalKey(ns_key, curr_index_buf, metadata.version).Encode(&curr_sub_key);
         s = storage_->Get(rocksdb::ReadOptions(), curr_sub_key, elem);
         if (!s.ok()) {
             return s;
@@ -514,7 +514,7 @@ namespace titandb {
         std::string new_index_buf;
         PutFixed64(&new_index_buf, new_index);
         std::string new_sub_key;
-        InternalKey(ns_key, new_index_buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&new_sub_key);
+        InternalKey(ns_key, new_index_buf, metadata.version).Encode(&new_sub_key);
         batch->Put(new_sub_key, *elem);
 
         std::string bytes;
@@ -556,7 +556,7 @@ namespace titandb {
         std::string src_buf;
         PutFixed64(&src_buf, src_index);
         std::string src_sub_key;
-        InternalKey(src_ns_key, src_buf, src_metadata.version, storage_->IsSlotIdEncoded()).Encode(&src_sub_key);
+        InternalKey(src_ns_key, src_buf, src_metadata.version).Encode(&src_sub_key);
         s = storage_->Get(rocksdb::ReadOptions(), src_sub_key, elem);
         if (!s.ok()) {
             return s;
@@ -577,7 +577,7 @@ namespace titandb {
         std::string dst_buf;
         PutFixed64(&dst_buf, dst_index);
         std::string dst_sub_key;
-        InternalKey(dst_ns_key, dst_buf, dst_metadata.version, storage_->IsSlotIdEncoded()).Encode(&dst_sub_key);
+        InternalKey(dst_ns_key, dst_buf, dst_metadata.version).Encode(&dst_sub_key);
         batch->Put(dst_sub_key, *elem);
         dst_left ? --dst_metadata.head : ++dst_metadata.tail;
 
@@ -620,7 +620,7 @@ namespace titandb {
             std::string buf;
             PutFixed64(&buf, i);
             std::string sub_key;
-            InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, buf, metadata.version).Encode(&sub_key);
             batch->Delete(sub_key);
             metadata.head++;
             trim_cnt++;
@@ -630,7 +630,7 @@ namespace titandb {
             std::string buf;
             PutFixed64(&buf, i);
             std::string sub_key;
-            InternalKey(ns_key, buf, metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+            InternalKey(ns_key, buf, metadata.version).Encode(&sub_key);
             batch->Delete(sub_key);
             metadata.tail--;
             trim_cnt++;

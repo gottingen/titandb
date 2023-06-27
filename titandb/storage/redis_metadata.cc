@@ -23,7 +23,6 @@
 #include <cstdlib>
 #include <ctime>
 
-#include "titandb/storage/redis_slot.h"
 #include "titandb/common/encoding.h"
 #include "turbo/times/clock.h"
 
@@ -35,15 +34,12 @@ namespace titandb {
 
     constexpr const char *kErrMetadataTooShort = "metadata is too short";
 
-    InternalKey::InternalKey(Slice input, bool slot_id_encoded) : slot_id_encoded_(slot_id_encoded) {
+    InternalKey::InternalKey(Slice input)  {
         uint32_t key_size = 0;
         uint8_t namespace_size = 0;
         GetFixed8(&input, &namespace_size);
         namespace_ = Slice(input.data(), namespace_size);
         input.remove_prefix(namespace_size);
-        if (slot_id_encoded_) {
-            GetFixed16(&input, &slotid_);
-        }
         GetFixed32(&input, &key_size);
         key_ = Slice(input.data(), key_size);
         input.remove_prefix(key_size);
@@ -51,15 +47,11 @@ namespace titandb {
         sub_key_ = Slice(input.data(), input.size());
     }
 
-    InternalKey::InternalKey(Slice ns_key, Slice sub_key, uint64_t version, bool slot_id_encoded)
-            : slot_id_encoded_(slot_id_encoded) {
+    InternalKey::InternalKey(Slice ns_key, Slice sub_key, uint64_t version) {
         uint8_t namespace_size = 0;
         GetFixed8(&ns_key, &namespace_size);
         namespace_ = Slice(ns_key.data(), namespace_size);
         ns_key.remove_prefix(namespace_size);
-        if (slot_id_encoded_) {
-            GetFixed16(&ns_key, &slotid_);
-        }
         key_ = ns_key;
         sub_key_ = sub_key;
         version_ = version;
@@ -77,19 +69,12 @@ namespace titandb {
         out->clear();
         size_t pos = 0;
         size_t total = 1 + namespace_.size() + 4 + key_.size() + 8 + sub_key_.size();
-        if (slot_id_encoded_) {
-            total += 2;
-        }
         out->resize(total);
         auto buf = out->data();
         EncodeFixed8(buf + pos, static_cast<uint8_t>(namespace_.size()));
         pos += 1;
         memcpy(buf + pos, namespace_.data(), namespace_.size());
         pos += namespace_.size();
-        if (slot_id_encoded_) {
-            EncodeFixed16(buf + pos, slotid_);
-            pos += 2;
-        }
         EncodeFixed32(buf + pos, static_cast<uint32_t>(key_.size()));
         pos += 4;
         memcpy(buf + pos, key_.data(), key_.size());
@@ -106,42 +91,23 @@ namespace titandb {
         return version_ == that.version_;
     }
 
-    void ExtractNamespaceKey(Slice ns_key, std::string *ns, std::string *key, bool slot_id_encoded) {
+    void ExtractNamespaceKey(Slice ns_key, std::string *ns, std::string *key) {
         uint8_t namespace_size = 0;
         GetFixed8(&ns_key, &namespace_size);
         *ns = ns_key.ToString().substr(0, namespace_size);
         ns_key.remove_prefix(namespace_size);
-
-        if (slot_id_encoded) {
-            uint16_t slot_id = 0;
-            GetFixed16(&ns_key, &slot_id);
-        }
-
         *key = ns_key.ToString();
     }
 
-    void ComposeNamespaceKey(const Slice &ns, const Slice &key, std::string *ns_key, bool slot_id_encoded) {
+    void ComposeNamespaceKey(const Slice &ns, const Slice &key, std::string *ns_key) {
         ns_key->clear();
 
         PutFixed8(ns_key, static_cast<uint8_t>(ns.size()));
         ns_key->append(ns.data(), ns.size());
 
-        if (slot_id_encoded) {
-            auto slot_id = GetSlotIdFromKey(key.ToString());
-            PutFixed16(ns_key, slot_id);
-        }
-
         ns_key->append(key.data(), key.size());
     }
 
-    void ComposeSlotKeyPrefix(const Slice &ns, int slotid, std::string *output) {
-        output->clear();
-
-        PutFixed8(output, static_cast<uint8_t>(ns.size()));
-        output->append(ns.data(), ns.size());
-
-        PutFixed16(output, static_cast<uint16_t>(slotid));
-    }
 
     Metadata::Metadata(RedisType type, bool generate_version, bool use_64bit_common_field)
             : flags((use_64bit_common_field ? METADATA_64BIT_ENCODING_MASK : 0) | (METADATA_TYPE_MASK & type)),

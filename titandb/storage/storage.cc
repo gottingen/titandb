@@ -606,7 +606,7 @@ namespace titandb {
         }
 
         std::string prefix, begin_key, end_key;
-        ComposeNamespaceKey(ns, "", &prefix, false);
+        ComposeNamespaceKey(ns, "", &prefix);
 
         RedisDB db(this, ns);
         uint64_t size = 0, total_size = 0;
