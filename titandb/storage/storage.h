@@ -71,8 +71,6 @@ namespace titandb {
 
         turbo::Status SetDBOption(const std::string &key, const std::string &value);
 
-        turbo::Status CreateColumnFamilies(const rocksdb::Options &options);
-
         turbo::Status CreateBackup();
 
         void DestroyBackup();
@@ -167,9 +165,9 @@ namespace titandb {
 
         bool IsDBInRetryableIOError() { return db_in_retryable_io_error_; }
 
-
-        std::string GetReplIdFromDbEngine();
-
+    private:
+        turbo::Status TryCreateColumnFamilies(const rocksdb::Options &options);
+        rocksdb::Status writeToDB(const rocksdb::WriteOptions &options, rocksdb::WriteBatch *updates);
     private:
         rocksdb::DB *db_ = nullptr;
         time_t backup_creating_time_;
@@ -200,8 +198,8 @@ namespace titandb {
         std::unique_ptr<rocksdb::WriteBatchWithIndex> txn_write_batch_;
 
         rocksdb::WriteOptions write_opts_ = rocksdb::WriteOptions();
+        std::vector<rocksdb::ColumnFamilyDescriptor> column_families_;
 
-        rocksdb::Status writeToDB(const rocksdb::WriteOptions &options, rocksdb::WriteBatch *updates);
     };
 
 }  // namespace titandb

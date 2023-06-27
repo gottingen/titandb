@@ -35,13 +35,11 @@
 #include "titandb/storage/redis_metadata.h"
 #include "titandb/storage/table_properties_collector.h"
 #include "turbo/times/clock.h"
-#include "turbo/crypto/crc32c.h"
 #include "titandb/common/unique_fd.h"
 #include "turbo/format/str_format.h"
 
 namespace titandb {
 
-    constexpr const char *kReplicationIdKey = "replication_id_";
 
     const int64_t kIORateLimitMaxMb = 1024000;
 
@@ -192,7 +190,7 @@ namespace titandb {
         return turbo::OkStatus();
     }
 
-    turbo::Status Storage::CreateColumnFamilies(const rocksdb::Options &options) {
+    turbo::Status Storage::TryCreateColumnFamilies(const rocksdb::Options &options) {
         rocksdb::DB *tmp_db = nullptr;
         rocksdb::ColumnFamilyOptions cf_options(options);
         rocksdb::Status s = rocksdb::DB::Open(options, config_->db_dir, &tmp_db);
@@ -236,7 +234,7 @@ namespace titandb {
         size_t subkey_block_cache_size = config_->rocks_db.subkey_block_cache_size * MiB;
 
         rocksdb::Options options = InitRocksDBOptions();
-        if (auto s = CreateColumnFamilies(options); !s.ok()) {
+        if (auto s = TryCreateColumnFamilies(options); !s.ok()) {
             return s;
         }
 
@@ -280,10 +278,9 @@ namespace titandb {
                 NewCompactOnExpiredTableCollectorFactory(kSubkeyColumnFamilyName, 0.3));
         SetBlobDB(&subkey_opts);
 
-        std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
         // Caution: don't change the order of column family, or the handle will be mismatched
-        column_families.emplace_back(rocksdb::kDefaultColumnFamilyName, subkey_opts);
-        column_families.emplace_back(kMetadataColumnFamilyName, metadata_opts);
+        column_families_.emplace_back(rocksdb::kDefaultColumnFamilyName, subkey_opts);
+        column_families_.emplace_back(kMetadataColumnFamilyName, metadata_opts);
 
         std::vector<std::string> old_column_families;
         auto s = rocksdb::DB::ListColumnFamilies(options, config_->db_dir, &old_column_families);
@@ -291,9 +288,9 @@ namespace titandb {
 
         auto start = std::chrono::high_resolution_clock::now();
         if (read_only) {
-            s = rocksdb::DB::OpenForReadOnly(options, config_->db_dir, column_families, &cf_handles_, &db_);
+            s = rocksdb::DB::OpenForReadOnly(options, config_->db_dir, column_families_, &cf_handles_, &db_);
         } else {
-            s = rocksdb::DB::Open(options, config_->db_dir, column_families, &cf_handles_, &db_);
+            s = rocksdb::DB::Open(options, config_->db_dir, column_families_, &cf_handles_, &db_);
         }
         auto end = std::chrono::high_resolution_clock::now();
         int64_t duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
