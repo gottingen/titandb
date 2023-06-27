@@ -161,68 +161,24 @@ namespace titandb {
 
         Storage &operator=(const Storage &) = delete;
 
-        // Full replication data files manager
-        class ReplDataManager {
-        public:
-            // Master side
-            static turbo::Status GetFullReplDataInfo(Storage *storage, std::string *files);
-
-            static int OpenDataFile(Storage *storage, const std::string &rel_file, uint64_t *file_size);
-
-            static turbo::Status
-            CleanInvalidFiles(Storage *storage, const std::string &dir, std::vector<std::string> valid_files);
-
-            struct CheckpointInfo {
-                std::atomic<time_t> create_time = 0;
-                std::atomic<time_t> access_time = 0;
-                uint64_t latest_seq = 0;
-            };
-
-            // Slave side
-            struct MetaInfo {
-                int64_t timestamp;
-                rocksdb::SequenceNumber seq;
-                std::string meta_data;
-                // [[filename, checksum]...]
-                std::vector<std::pair<std::string, uint32_t>> files;
-            };
-
-            static std::unique_ptr<rocksdb::WritableFile> NewTmpFile(Storage *storage, const std::string &dir,
-                                                                     const std::string &repl_file);
-
-            static turbo::Status SwapTmpFile(Storage *storage, const std::string &dir, const std::string &repl_file);
-
-            static bool
-            FileExists(Storage *storage, const std::string &dir, const std::string &repl_file, uint32_t crc);
-        };
-
         bool ExistCheckpoint();
 
         bool ExistSyncCheckpoint();
-
-        time_t GetCheckpointCreateTime() { return checkpoint_info_.create_time; }
-
-        void SetCheckpointAccessTime(time_t t) { checkpoint_info_.access_time = t; }
-
-        time_t GetCheckpointAccessTime() { return checkpoint_info_.access_time; }
 
         void SetDBInRetryableIOError(bool yes_or_no) { db_in_retryable_io_error_ = yes_or_no; }
 
         bool IsDBInRetryableIOError() { return db_in_retryable_io_error_; }
 
-        std::string GetReplIdFromWalBySeq(rocksdb::SequenceNumber seq);
 
         std::string GetReplIdFromDbEngine();
 
     private:
         rocksdb::DB *db_ = nullptr;
-        std::string replid_;
         time_t backup_creating_time_;
         rocksdb::BackupEngine *backup_ = nullptr;
         rocksdb::Env *env_;
         std::shared_ptr<rocksdb::SstFileManager> sst_file_manager_;
         std::shared_ptr<rocksdb::RateLimiter> rate_limiter_;
-        ReplDataManager::CheckpointInfo checkpoint_info_;
         std::mutex checkpoint_mu_;
         Config *config_ = nullptr;
         std::vector<rocksdb::ColumnFamilyHandle *> cf_handles_;

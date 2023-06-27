@@ -21,7 +21,6 @@
 #include "titandb/storage/db_util.h"
 #include "rocksdb/status.h"
 #include "titandb/storage/redis_metadata.h"
-#include "titandb/types/redis_zset.h"
 
 namespace titandb {
 

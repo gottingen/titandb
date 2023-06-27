@@ -25,9 +25,7 @@ namespace titandb {
         _key_db = std::make_unique<RedisDB>(_storage, _ns);
         _list_db = std::make_unique<RedisList>(_storage, _ns);
         _set_db = std::make_unique<RedisSet>(_storage, _ns);
-        _geo_db = std::make_unique<RedisGeo>(_storage, _ns);
         _sorted_int_db = std::make_unique<RedisSortedInt>(_storage, _ns);
-        _zset_db = std::make_unique<RedisZSet>(_storage, _ns);
 
     }
 

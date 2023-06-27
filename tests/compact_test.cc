@@ -21,7 +21,6 @@
 #include "titandb/storage/redis_metadata.h"
 #include "titandb/storage/storage.h"
 #include "titandb/types/redis_hash.h"
-#include "titandb/types/redis_zset.h"
 #include "turbo/log/logging.h"
 
 using namespace titandb;
@@ -79,14 +78,6 @@ TEST_CASE("Compact, Filter") {
         InternalKey ikey(iter->key(), storage->IsSlotIdEncoded());
         CHECK_EQ(ikey.GetKey().ToString(), live_hash_key);
     }
-
-    TLOG_INFO("zset db init");
-    auto zset = std::make_unique<RedisZSet>(storage.get(), ns);
-    std::string expired_zset_key = "expire_zset_key";
-    std::vector<MemberScore> member_scores = {MemberScore{"z1", 1.1}, MemberScore{"z2", 0.4}};
-    zset->Add(expired_zset_key, ZAddFlags::Default(), &member_scores, &ret);
-    zset->Expire(expired_zset_key, 1);  // expired
-    usleep(10000);
 
     status = storage->Compact(nullptr, nullptr);
     assert(status.ok());

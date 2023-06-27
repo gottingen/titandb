@@ -33,7 +33,6 @@
 #include "titandb/storage/event_listener.h"
 #include "titandb/storage/redis_db.h"
 #include "titandb/storage/redis_metadata.h"
-#include "titandb/storage/log.h"
 #include "titandb/storage/table_properties_collector.h"
 #include "turbo/times/clock.h"
 #include "turbo/crypto/crc32c.h"
@@ -544,11 +543,6 @@ namespace titandb {
             return rocksdb::Status::SpaceLimit();
         }
 
-        // Put replication id logdata at the end of write batch
-        if (replid_.length() == kReplIdLength) {
-            updates->PutLogData(ServerLogData(kReplIdLog, replid_).Encode());
-        }
-
         return db_->Write(options, updates);
     }
 
@@ -692,126 +686,11 @@ namespace titandb {
         return ObserverOrUniquePtr<rocksdb::WriteBatchBase>(new rocksdb::WriteBatch(), ObserverOrUnique::Unique);
     }
 
-    std::string Storage::GetReplIdFromWalBySeq(rocksdb::SequenceNumber seq) {
-        std::unique_ptr<rocksdb::TransactionLogIterator> iter = nullptr;
-
-        if (!WALHasNewData(seq) || !GetWALIter(seq, &iter).ok()) return "";
-
-        // An extractor to extract update from raw writebatch
-        class ReplIdExtractor : public rocksdb::WriteBatch::Handler {
-        public:
-            rocksdb::Status PutCF(uint32_t column_family_id, const Slice &key, const Slice &value) override {
-                return rocksdb::Status::OK();
-            }
-
-            rocksdb::Status DeleteCF(uint32_t column_family_id, const rocksdb::Slice &key) override {
-                return rocksdb::Status::OK();
-            }
-
-            rocksdb::Status DeleteRangeCF(uint32_t column_family_id, const rocksdb::Slice &begin_key,
-                                          const rocksdb::Slice &end_key) override {
-                return rocksdb::Status::OK();
-            }
-
-            void LogData(const rocksdb::Slice &blob) override {
-                // Currently, we always put replid log data at the end.
-                if (ServerLogData::IsServerLogData(blob.data())) {
-                    ServerLogData server_log;
-                    if (server_log.Decode(blob).ok()) {
-                        if (server_log.GetType() == kReplIdLog) {
-                            replid_in_wal_ = server_log.GetContent();
-                        }
-                    }
-                }
-            };
-
-            std::string GetReplId() { return replid_in_wal_; }
-
-        private:
-            std::string replid_in_wal_;
-        };
-
-        auto batch = iter->GetBatch();
-        ReplIdExtractor write_batch_handler;
-        rocksdb::Status s = batch.writeBatchPtr->Iterate(&write_batch_handler);
-        if (!s.ok()) return "";
-
-        return write_batch_handler.GetReplId();
-    }
 
     std::shared_lock<std::shared_mutex> Storage::ReadLockGuard() { return std::shared_lock(db_rw_lock_); }
 
     std::unique_lock<std::shared_mutex> Storage::WriteLockGuard() { return std::unique_lock(db_rw_lock_); }
 
-    turbo::Status Storage::ReplDataManager::GetFullReplDataInfo(Storage *storage, std::string *files) {
-        auto guard = storage->ReadLockGuard();
-        if (storage->IsClosing()) return turbo::UnavailableError("DB is closing");
-
-        std::string data_files_dir = storage->config_->checkpoint_dir;
-        std::unique_lock<std::mutex> ulm(storage->checkpoint_mu_);
-
-        // Create checkpoint if not exist
-        if (!storage->env_->FileExists(data_files_dir).ok()) {
-            rocksdb::Checkpoint *checkpoint = nullptr;
-            rocksdb::Status s = rocksdb::Checkpoint::Create(storage->db_, &checkpoint);
-            if (!s.ok()) {
-                TLOG_WARN("Failed to create checkpoint object. Error: {}", s.ToString());
-                return turbo::UnavailableError(s.ToString());
-            }
-
-            std::unique_ptr<rocksdb::Checkpoint> checkpoint_guard(checkpoint);
-
-            // Create checkpoint of rocksdb
-            uint64_t checkpoint_latest_seq = 0;
-            s = checkpoint->CreateCheckpoint(data_files_dir, storage->config_->rocks_db.write_buffer_size * MiB,
-                                             &checkpoint_latest_seq);
-            auto now = static_cast<time_t>(turbo::ToTimeT(turbo::Now()));
-            storage->checkpoint_info_.create_time = now;
-            storage->checkpoint_info_.access_time = now;
-            storage->checkpoint_info_.latest_seq = checkpoint_latest_seq;
-            if (!s.ok()) {
-                TLOG_WARN("[storage] Failed to create checkpoint (snapshot). Error: {}", s.ToString());
-                return turbo::UnavailableError(s.ToString());
-            }
-
-            TLOG_INFO("[storage] Create checkpoint successfully");
-        } else {
-            // Replicas can share checkpoint to replication if the checkpoint existing time is less than a half of WAL TTL.
-            int64_t can_shared_time = storage->config_->rocks_db.wal_ttl_seconds / 2;
-            if (can_shared_time > 60 * 60) can_shared_time = 60 * 60;
-            if (can_shared_time < 10 * 60) can_shared_time = 10 * 60;
-
-            auto now = static_cast<time_t>(turbo::ToTimeT(turbo::Now()));
-            if (now - storage->GetCheckpointCreateTime() > can_shared_time) {
-                TLOG_WARN("[storage] Can't use current checkpoint, waiting next checkpoint");
-                return turbo::UnavailableError("Can't use current checkpoint, waiting for next checkpoint");
-            }
-
-            // Should not use current checkpoint if its latest sequence was out of the WAL boundary,
-            // or the slave will fall into the full sync loop since it won't create new checkpoint.
-            auto s = storage->InWALBoundary(storage->checkpoint_info_.latest_seq);
-            if (!s.ok()) {
-                TLOG_WARN("[storage] Can't use current checkpoint, error: {}", s.message());
-                return turbo::UnavailableError(turbo::Format("Can't use current checkpoint, error: {}", s.message()));
-            }
-            TLOG_INFO("[storage] Using current existing checkpoint");
-        }
-
-        ulm.unlock();
-
-        // Get checkpoint file list
-        std::vector<std::string> result;
-        storage->env_->GetChildren(data_files_dir, &result);
-        for (const auto &f: result) {
-            if (f == "." || f == "..") continue;
-
-            files->append(f);
-            files->push_back(',');
-        }
-        files->pop_back();
-
-        return turbo::OkStatus();
-    }
 
     bool Storage::ExistCheckpoint() {
         std::lock_guard<std::mutex> lg(checkpoint_mu_);
@@ -832,58 +711,6 @@ namespace titandb {
         return turbo::OkStatus();
     }
 
-    turbo::Status Storage::ReplDataManager::CleanInvalidFiles(Storage *storage, const std::string &dir,
-                                                              std::vector<std::string> valid_files) {
-        if (!storage->env_->FileExists(dir).ok()) {
-            return turbo::OkStatus();
-        }
-
-        std::vector<std::string> tmp_files, files;
-        storage->env_->GetChildren(dir, &tmp_files);
-        for (const auto &file: tmp_files) {
-            if (file == "." || file == "..") continue;
-            files.push_back(file);
-        }
-
-        // Find invalid files
-        std::sort(files.begin(), files.end());
-        std::sort(valid_files.begin(), valid_files.end());
-        std::vector<std::string> invalid_files(files.size() + valid_files.size());
-        auto it =
-                std::set_difference(files.begin(), files.end(), valid_files.begin(), valid_files.end(),
-                                    invalid_files.begin());
-
-        // Delete invalid files
-        turbo::Status ret;
-        invalid_files.resize(it - invalid_files.begin());
-        for (it = invalid_files.begin(); it != invalid_files.end(); ++it) {
-            auto s = storage->env_->DeleteFile(dir + "/" + *it);
-            if (!s.ok()) {
-                ret = turbo::UnavailableError(s.ToString());
-                TLOG_INFO("[storage] Failed to delete invalid file {}  of master checkpoint", *it);
-            } else {
-                TLOG_INFO("[storage] Succeed deleting invalid file {}  of master checkpoint", *it);
-            }
-        }
-        return ret;
-    }
-
-    int Storage::ReplDataManager::OpenDataFile(Storage *storage, const std::string &repl_file, uint64_t *file_size) {
-        std::string abs_path = storage->config_->checkpoint_dir + "/" + repl_file;
-        auto s = storage->env_->FileExists(abs_path);
-        if (!s.ok()) {
-            TLOG_ERROR("[storage] Data file [{}] not found", abs_path);
-            return NullFD;
-        }
-
-        storage->env_->GetFileSize(abs_path, file_size);
-        auto rv = open(abs_path.c_str(), O_RDONLY);
-        if (rv < 0) {
-            TLOG_ERROR("[storage] Failed to open file: {}", strerror(errno));
-        }
-
-        return rv;
-    }
 
     turbo::Status MkdirRecursively(rocksdb::Env *env, const std::string &dir) {
         if (env->CreateDirIfMissing(dir).ok()) return turbo::OkStatus();
@@ -901,84 +728,4 @@ namespace titandb {
 
         return turbo::UnavailableError("");
     }
-
-    std::unique_ptr<rocksdb::WritableFile>
-    Storage::ReplDataManager::NewTmpFile(Storage *storage, const std::string &dir,
-                                         const std::string &repl_file) {
-        std::string tmp_file = dir + "/" + repl_file + ".tmp";
-        auto s = storage->env_->FileExists(tmp_file);
-        if (s.ok()) {
-            TLOG_ERROR("[storage] Data file exists, override");
-            storage->env_->DeleteFile(tmp_file);
-        }
-
-        // Create directory if missing
-        auto abs_dir = tmp_file.substr(0, tmp_file.rfind('/'));
-        if (!MkdirRecursively(storage->env_, abs_dir).ok()) {
-            return nullptr;
-        }
-
-        std::unique_ptr<rocksdb::WritableFile> wf;
-        s = storage->env_->NewWritableFile(tmp_file, &wf, rocksdb::EnvOptions());
-        if (!s.ok()) {
-            TLOG_ERROR("[storage] Failed to create data file '{}'. Error: {}", tmp_file, s.ToString());
-            return nullptr;
-        }
-
-        return wf;
-    }
-
-    turbo::Status
-    Storage::ReplDataManager::SwapTmpFile(Storage *storage, const std::string &dir, const std::string &repl_file) {
-        std::string tmp_file = dir + "/" + repl_file + ".tmp";
-        std::string orig_file = dir + "/" + repl_file;
-
-        auto s = storage->env_->RenameFile(tmp_file, orig_file);
-        if (!s.ok()) {
-            return turbo::UnavailableError(
-                    turbo::Format("unable to rename '{}' to '{}'. Error: {}", tmp_file, orig_file, s.ToString()));
-        }
-
-        return turbo::OkStatus();
-    }
-
-    bool Storage::ReplDataManager::FileExists(Storage *storage, const std::string &dir, const std::string &repl_file,
-                                              uint32_t crc) {
-        if (storage->IsClosing()) return false;
-
-        auto file_path = dir + "/" + repl_file;
-        auto s = storage->env_->FileExists(file_path);
-        if (!s.ok()) return false;
-
-        // If crc is 0, we needn't verify, return true directly.
-        if (crc == 0) return true;
-
-        std::unique_ptr<rocksdb::SequentialFile> src_file;
-        const rocksdb::EnvOptions env_options;
-        s = storage->env_->NewSequentialFile(file_path, &src_file, env_options);
-        if (!s.ok()) return false;
-
-        uint64_t size = 0;
-        s = storage->env_->GetFileSize(file_path, &size);
-        if (!s.ok()) return false;
-
-        auto src_reader = std::make_unique<rocksdb::SequentialFileWrapper>(src_file.get());
-
-        char buffer[4096];
-        Slice slice;
-        uint32_t tmp_crc = 0;
-        while (size > 0) {
-            size_t bytes_to_read = std::min(sizeof(buffer), static_cast<size_t>(size));
-            s = src_reader->Read(bytes_to_read, &slice, buffer);
-            if (!s.ok()) return false;
-
-            if (slice.size() == 0) return false;
-            auto c = turbo::ComputeCrc32c(std::string_view(slice.data(), slice.size()));
-            tmp_crc = (uint32_t) c;
-            size -= slice.size();
-        }
-
-        return crc == tmp_crc;
-    }
-
 }  // namespace titandb

@@ -49,13 +49,6 @@ carbin_cc_test(
 )
 
 carbin_cc_test(
-        NAME geo_test
-        SOURCES types/geo_test.cc
-        DEPS titandb::titandb ${CARBIN_DEPS_LINK}
-        COPTS ${USER_CXX_FLAGS}
-)
-
-carbin_cc_test(
         NAME list_test
         SOURCES types/list_test.cc
         DEPS titandb::titandb ${CARBIN_DEPS_LINK}
@@ -75,14 +68,6 @@ carbin_cc_test(
         DEPS titandb::titandb ${CARBIN_DEPS_LINK}
         COPTS ${USER_CXX_FLAGS}
 )
-
-#[[
-carbin_cc_test(
-        NAME zset_test
-        SOURCES types/zset_test.cc
-        DEPS titandb::titandb ${CARBIN_DEPS_LINK}
-        COPTS ${USER_CXX_FLAGS}
-)]]
 
 carbin_cc_test(
         NAME compact_test
