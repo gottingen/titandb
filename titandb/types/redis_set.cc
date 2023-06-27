@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-#include "titandb/types/redis_set.h"
+#include "titandb/redis_db.h"
 
 #include <map>
 #include <memory>
@@ -22,12 +22,9 @@
 
 namespace titandb {
 
-    rocksdb::Status RedisSet::GetMetadata(const std::string_view &ns_key, SetMetadata *metadata) {
-        return RedisDB::GetMetadata(kRedisSet, ns_key, metadata);
-    }
 
-// Make sure members are uniq before use Overwrite
-    rocksdb::Status RedisSet::Overwrite(std::string_view user_key, const std::vector<std::string> &members) {
+    // Make sure members are uniq before use Overwrite
+    rocksdb::Status RedisDB::Overwrite(std::string_view user_key, const std::vector<std::string> &members) {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
@@ -48,7 +45,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisSet::Add(const std::string_view &user_key, const std::vector<std::string_view> &members, int *ret) {
+    rocksdb::Status RedisDB::Add(const std::string_view &user_key, const std::vector<std::string_view> &members, int *ret) {
         *ret = 0;
 
         std::string ns_key;
@@ -56,7 +53,7 @@ namespace titandb {
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         SetMetadata metadata;
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSet,ns_key, &metadata);
         if (!s.ok() && !s.IsNotFound()) return s;
 
         std::string value;
@@ -80,7 +77,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisSet::Remove(const std::string_view &user_key, const std::vector<std::string_view> &members, int *ret) {
+    rocksdb::Status RedisDB::Remove(const std::string_view &user_key, const std::vector<std::string_view> &members, int *ret) {
         *ret = 0;
 
         std::string ns_key;
@@ -88,7 +85,7 @@ namespace titandb {
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         SetMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSet,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string value, sub_key;
@@ -115,26 +112,26 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisSet::Card(const std::string_view &user_key, int *ret) {
+    rocksdb::Status RedisDB::Card(const std::string_view &user_key, int *ret) {
         *ret = 0;
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
         SetMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSet,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
         *ret = static_cast<int>(metadata.size);
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisSet::Members(const std::string_view &user_key, std::vector<std::string> *members) {
+    rocksdb::Status RedisDB::Members(const std::string_view &user_key, std::vector<std::string> *members) {
         members->clear();
 
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
         SetMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSet,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string prefix, next_version_prefix;
@@ -156,7 +153,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisSet::IsMember(const std::string_view &user_key, const std::string_view &member, int *ret) {
+    rocksdb::Status RedisDB::IsMember(const std::string_view &user_key, const std::string_view &member, int *ret) {
         std::vector<int> exists;
         rocksdb::Status s = MIsMember(user_key, {member}, &exists);
         if (!s.ok()) return s;
@@ -164,14 +161,14 @@ namespace titandb {
         return s;
     }
 
-    rocksdb::Status RedisSet::MIsMember(const std::string_view &user_key, const std::vector<std::string_view> &members, std::vector<int> *exists) {
+    rocksdb::Status RedisDB::MIsMember(const std::string_view &user_key, const std::vector<std::string_view> &members, std::vector<int> *exists) {
         exists->clear();
 
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
         SetMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSet,ns_key, &metadata);
         if (!s.ok()) return s;
 
         rocksdb::ReadOptions read_options;
@@ -191,7 +188,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisSet::Take(const std::string_view &user_key, std::vector<std::string> *members, int count, bool pop) {
+    rocksdb::Status RedisDB::Take(const std::string_view &user_key, std::vector<std::string> *members, int count, bool pop) {
         int n = 0;
         members->clear();
         if (count <= 0) return rocksdb::Status::OK();
@@ -203,7 +200,7 @@ namespace titandb {
         if (pop) lock_guard = std::make_unique<LockGuard>(storage_->GetLockManager(), ns_key);
 
         SetMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSet,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         auto batch = storage_->GetWriteBatchBase();
@@ -237,7 +234,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisSet::Move(const std::string_view &src, const std::string_view &dst, const std::string_view &member, int *ret) {
+    rocksdb::Status RedisDB::Move(const std::string_view &src, const std::string_view &dst, const std::string_view &member, int *ret) {
         RedisType type = kRedisNone;
         rocksdb::Status s = Type(dst, &type);
         if (!s.ok()) return s;
@@ -253,20 +250,20 @@ namespace titandb {
         return Add(dst, members, ret);
     }
 
-    rocksdb::Status RedisSet::Scan(const std::string_view &user_key, const std::string_view &cursor, uint64_t limit,
+    rocksdb::Status RedisDB::Scan(const std::string_view &user_key, const std::string_view &cursor, uint64_t limit,
                               const std::string_view &member_prefix, std::vector<std::string> *members) {
-        return SubKeyScanner::Scan(kRedisSet, user_key, cursor, limit, member_prefix, members);
+        return SubKeyScanner(kRedisSet, user_key, cursor, limit, member_prefix, members);
     }
 
-/*
- * Returns the members of the set resulting from the difference between
- * the first set and all the successive sets. For example:
- * key1 = {a,b,c,d}
- * key2 = {c}
- * key3 = {a,c,e}
- * DIFF key1 key2 key3 = {b,d}
- */
-    rocksdb::Status RedisSet::Diff(const std::vector<std::string_view> &keys, std::vector<std::string> *members) {
+    /*
+     * Returns the members of the set resulting from the difference between
+     * the first set and all the successive sets. For example:
+     * key1 = {a,b,c,d}
+     * key2 = {c}
+     * key3 = {a,c,e}
+     * DIFF key1 key2 key3 = {b,d}
+     */
+    rocksdb::Status RedisDB::Diff(const std::vector<std::string_view> &keys, std::vector<std::string> *members) {
         members->clear();
         std::vector<std::string> source_members;
         auto s = Members(keys[0], &source_members);
@@ -289,15 +286,15 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-/*
- * Returns the members of the set resulting from the union of all the given sets.
- * For example:
- * key1 = {a,b,c,d}
- * key2 = {c}
- * key3 = {a,c,e}
- * UNION key1 key2 key3 = {a,b,c,d,e}
- */
-    rocksdb::Status RedisSet::Union(const std::vector<std::string_view> &keys, std::vector<std::string> *members) {
+    /*
+     * Returns the members of the set resulting from the union of all the given sets.
+     * For example:
+     * key1 = {a,b,c,d}
+     * key2 = {c}
+     * key3 = {a,c,e}
+     * UNION key1 key2 key3 = {a,b,c,d,e}
+     */
+    rocksdb::Status RedisDB::Union(const std::vector<std::string_view> &keys, std::vector<std::string> *members) {
         members->clear();
 
         std::map<std::string, bool> union_members;
@@ -315,15 +312,15 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-/*
- * Returns the members of the set resulting from the intersection of all the given sets.
- * For example:
- * key1 = {a,b,c,d}
- * key2 = {c}
- * key3 = {a,c,e}
- * INTER key1 key2 key3 = {c}
- */
-    rocksdb::Status RedisSet::Inter(const std::vector<std::string_view> &keys, std::vector<std::string> *members) {
+    /*
+     * Returns the members of the set resulting from the intersection of all the given sets.
+     * For example:
+     * key1 = {a,b,c,d}
+     * key2 = {c}
+     * key3 = {a,c,e}
+     * INTER key1 key2 key3 = {c}
+     */
+    rocksdb::Status RedisDB::Inter(const std::vector<std::string_view> &keys, std::vector<std::string> *members) {
         members->clear();
 
         std::map<std::string, size_t> member_counters;
@@ -349,7 +346,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisSet::DiffStore(const std::string_view &dst, const std::vector<std::string_view> &keys, int *ret) {
+    rocksdb::Status RedisDB::DiffStore(const std::string_view &dst, const std::vector<std::string_view> &keys, int *ret) {
         *ret = 0;
         std::vector<std::string> members;
         auto s = Diff(keys, &members);
@@ -358,7 +355,7 @@ namespace titandb {
         return Overwrite(dst, members);
     }
 
-    rocksdb::Status RedisSet::UnionStore(const std::string_view &dst, const std::vector<std::string_view> &keys, int *ret) {
+    rocksdb::Status RedisDB::UnionStore(const std::string_view &dst, const std::vector<std::string_view> &keys, int *ret) {
         *ret = 0;
         std::vector<std::string> members;
         auto s = Union(keys, &members);
@@ -367,7 +364,7 @@ namespace titandb {
         return Overwrite(dst, members);
     }
 
-    rocksdb::Status RedisSet::InterStore(const std::string_view &dst, const std::vector<std::string_view> &keys, int *ret) {
+    rocksdb::Status RedisDB::InterStore(const std::string_view &dst, const std::vector<std::string_view> &keys, int *ret) {
         *ret = 0;
         std::vector<std::string> members;
         auto s = Inter(keys, &members);

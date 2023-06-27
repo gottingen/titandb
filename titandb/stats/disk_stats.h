@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include "titandb/storage/redis_db.h"
+#include "titandb/redis_db.h"
 #include "titandb/storage/redis_metadata.h"
 
 namespace titandb {

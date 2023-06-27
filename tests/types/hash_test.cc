@@ -24,12 +24,12 @@
 
 #include "turbo/strings/numbers.h"
 #include "../test_base.h"
-#include "titandb/types/redis_hash.h"
+#include "titandb/redis_db.h"
 
 class RedisHashTest : public TestBase {
 protected:
     explicit RedisHashTest() {
-        hash_ = std::make_unique<titandb::RedisHash>(storage_, "hash_ns");
+        hash_ = std::make_unique<titandb::RedisDB>(storage_, "hash_ns");
         key_ = "test_hash->key";
         fields_ = {"test-hash-key-1", "test-hash-key-2", "test-hash-key-3"};
         values_ = {"hash-test-value-1", "hash-test-value-2", "hash-test-value-3"};
@@ -38,7 +38,7 @@ protected:
     ~RedisHashTest() override = default;
     
 
-    std::unique_ptr<titandb::RedisHash> hash_;
+    std::unique_ptr<titandb::RedisDB> hash_;
 };
 
 TEST_CASE_FIXTURE(RedisHashTest, "GetAndSet") {

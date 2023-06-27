@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-#include "titandb/types/redis_bitmap.h"
+#include "titandb/redis_db.h"
 
 #include <algorithm>
 #include <memory>
@@ -22,7 +22,6 @@
 
 #include "titandb/storage/db_util.h"
 #include "turbo/strings/numbers.h"
-#include "titandb/types/redis_bitmap_string.h"
 
 namespace titandb {
 
@@ -33,7 +32,7 @@ namespace titandb {
             "The size of the bitmap string exceeds the "
             "configuration item max-bitmap-to-string-mb";
 
-    rocksdb::Status RedisBitmap::GetMetadata(const Slice &ns_key, BitmapMetadata *metadata, std::string *raw_value) {
+    rocksdb::Status RedisDB::GetBitmapMetadata(const Slice &ns_key, BitmapMetadata *metadata, std::string *raw_value) {
         std::string old_metadata;
         metadata->Encode(&old_metadata);
         auto s = GetRawMetadata(ns_key, raw_value);
@@ -56,18 +55,17 @@ namespace titandb {
         return s;
     }
 
-    rocksdb::Status RedisBitmap::GetBit(const Slice &user_key, uint32_t offset, bool *bit) {
+    rocksdb::Status RedisDB::GetBit(const Slice &user_key, uint32_t offset, bool *bit) {
         *bit = false;
         std::string ns_key, raw_value;
         AppendNamespacePrefix(user_key, &ns_key);
 
         BitmapMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata, &raw_value);
+        rocksdb::Status s = GetBitmapMetadata(ns_key, &metadata, &raw_value);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         if (metadata.Type() == kRedisString) {
-            RedisBitmapString bitmap_string_db(storage_, namespace_);
-            return bitmap_string_db.GetBit(raw_value, offset, bit);
+            return StringGetBit(raw_value, offset, bit);
         }
 
         LatestSnapShot ss(storage_);
@@ -87,13 +85,13 @@ namespace titandb {
 
 // Use this function after careful estimation, and reserve enough memory
 // according to the max size of the bitmap string to prevent OOM.
-    rocksdb::Status RedisBitmap::GetString(const Slice &user_key, const uint32_t max_btos_size, std::string *value) {
+    rocksdb::Status RedisDB::GetString(const Slice &user_key, const uint32_t max_btos_size, std::string *value) {
         value->clear();
         std::string ns_key, raw_value;
         AppendNamespacePrefix(user_key, &ns_key);
 
         BitmapMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata, &raw_value);
+        rocksdb::Status s = GetBitmapMetadata(ns_key, &metadata, &raw_value);
         if (!s.ok()) return s;
         if (metadata.size > max_btos_size) {
             return rocksdb::Status::Aborted(kErrBitmapStringOutOfRange);
@@ -172,18 +170,17 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisBitmap::SetBit(const Slice &user_key, uint32_t offset, bool new_bit, bool *old_bit) {
+    rocksdb::Status RedisDB::SetBit(const Slice &user_key, uint32_t offset, bool new_bit, bool *old_bit) {
         std::string ns_key, raw_value;
         AppendNamespacePrefix(user_key, &ns_key);
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         BitmapMetadata metadata;
-        rocksdb::Status s = GetMetadata(ns_key, &metadata, &raw_value);
+        rocksdb::Status s = GetBitmapMetadata(ns_key, &metadata, &raw_value);
         if (!s.ok() && !s.IsNotFound()) return s;
 
         if (metadata.Type() == kRedisString) {
-            RedisBitmapString bitmap_string_db(storage_, namespace_);
-            return bitmap_string_db.SetBit(ns_key, &raw_value, offset, new_bit, old_bit);
+            return StringSetBit(ns_key, &raw_value, offset, new_bit, old_bit);
         }
 
         std::string sub_key, value;
@@ -227,18 +224,17 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisBitmap::BitCount(const Slice &user_key, int64_t start, int64_t stop, uint32_t *cnt) {
+    rocksdb::Status RedisDB::BitCount(const Slice &user_key, int64_t start, int64_t stop, uint32_t *cnt) {
         *cnt = 0;
         std::string ns_key, raw_value;
         AppendNamespacePrefix(user_key, &ns_key);
 
         BitmapMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata, &raw_value);
+        rocksdb::Status s = GetBitmapMetadata(ns_key, &metadata, &raw_value);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         if (metadata.Type() == kRedisString) {
-            RedisBitmapString bitmap_string_db(storage_, namespace_);
-            return bitmap_string_db.BitCount(raw_value, start, stop, cnt);
+            return StringBitCount(raw_value, start, stop, cnt);
         }
 
         if (start < 0) start += static_cast<int64_t>(metadata.size) + 1;
@@ -266,18 +262,18 @@ namespace titandb {
             if (i == start_index) j = u_start % kBitmapSegmentBytes;
             auto k = static_cast<int64_t>(value.size());
             if (i == stop_index) k = u_stop % kBitmapSegmentBytes + 1;
-            *cnt += RedisBitmapString::RawPopcount(reinterpret_cast<const uint8_t *>(value.data()) + j, k);
+            *cnt += RawPopcount(reinterpret_cast<const uint8_t *>(value.data()) + j, k);
         }
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisBitmap::BitPos(const Slice &user_key, bool bit, int64_t start, int64_t stop, bool stop_given,
+    rocksdb::Status RedisDB::BitPos(const Slice &user_key, bool bit, int64_t start, int64_t stop, bool stop_given,
                                    int64_t *pos) {
         std::string ns_key, raw_value;
         AppendNamespacePrefix(user_key, &ns_key);
 
         BitmapMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata, &raw_value);
+        rocksdb::Status s = GetBitmapMetadata(ns_key, &metadata, &raw_value);
         if (!s.ok() && !s.IsNotFound()) return s;
         if (s.IsNotFound()) {
             *pos = bit ? -1 : 0;
@@ -285,8 +281,7 @@ namespace titandb {
         }
 
         if (metadata.Type() == kRedisString) {
-            RedisBitmapString bitmap_string_db(storage_, namespace_);
-            return bitmap_string_db.BitPos(raw_value, bit, start, stop, stop_given, pos);
+            return StringBitPos(raw_value, bit, start, stop, stop_given, pos);
         }
 
         if (start < 0) start += static_cast<int64_t>(metadata.size) + 1;
@@ -344,7 +339,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisBitmap::BitOp(BitOpFlags op_flag, const std::string_view &op_name, const std::string_view &user_key,
+    rocksdb::Status RedisDB::BitOp(BitOpFlags op_flag, const std::string_view &op_name, const std::string_view &user_key,
                                   const std::vector<std::string_view> &op_keys, int64_t *len) {
         std::string ns_key, raw_value, ns_op_key;
         AppendNamespacePrefix(user_key, &ns_key);
@@ -356,7 +351,7 @@ namespace titandb {
         for (const auto &op_key: op_keys) {
             BitmapMetadata metadata(false);
             AppendNamespacePrefix(op_key, &ns_op_key);
-            auto s = GetMetadata(ns_op_key, &metadata, &raw_value);
+            auto s = GetBitmapMetadata(ns_op_key, &metadata, &raw_value);
             if (!s.ok()) {
                 if (s.IsNotFound()) {
                     num_keys--;
@@ -536,7 +531,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    bool RedisBitmap::GetBitFromValueAndOffset(const std::string &value, uint32_t offset) {
+    bool RedisDB::GetBitFromValueAndOffset(const std::string &value, uint32_t offset) {
         bool bit = false;
         uint32_t byte_index = (offset / 8) % kBitmapSegmentBytes;
         if ((byte_index < value.size() && (value[byte_index] & (1 << (offset % 8))))) {
@@ -545,7 +540,7 @@ namespace titandb {
         return bit;
     }
 
-    bool RedisBitmap::IsEmptySegment(const Slice &segment) {
+    bool RedisDB::IsEmptySegment(const Slice &segment) {
         static const char zero_byte_segment[kBitmapSegmentBytes] = {0};
         return !memcmp(zero_byte_segment, segment.data(), segment.size());
     }

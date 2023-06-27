@@ -21,7 +21,7 @@
 #include "titandb/storage/redis_metadata.h"
 #include "test_base.h"
 #include "turbo/times/clock.h"
-#include "titandb/types/redis_hash.h"
+#include "titandb/redis_db.h"
 
 using namespace titandb;
 
@@ -69,7 +69,7 @@ class RedisTypeTest : public TestBase {
 public:
     RedisTypeTest() {
         redis_ = std::make_unique<titandb::RedisDB>(storage_, "default_ns");
-        hash_ = std::make_unique<titandb::RedisHash>(storage_, "default_ns");
+        hash_ = std::make_unique<titandb::RedisDB>(storage_, "default_ns");
         key_ = "test-redis-type";
         fields_ = {"test-hash-key-1", "test-hash-key-2", "test-hash-key-3"};
         values_ = {"hash-test-value-1", "hash-test-value-2", "hash-test-value-3"};
@@ -79,7 +79,7 @@ public:
 
 protected:
     std::unique_ptr<titandb::RedisDB> redis_;
-    std::unique_ptr<titandb::RedisHash> hash_;
+    std::unique_ptr<titandb::RedisDB> hash_;
 };
 
 TEST_CASE_FIXTURE(RedisTypeTest, "GetMetadata") {

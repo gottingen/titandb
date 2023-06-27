@@ -14,14 +14,13 @@
 //
 
 #include "titandb/storage/compact_filter.h"
-
+#include "titandb/redis_db.h"
 #include "turbo/log/logging.h"
 
 #include <string>
 #include <utility>
 
 #include "turbo/times/clock.h"
-#include "titandb/types/redis_bitmap.h"
 
 namespace titandb {
 
@@ -130,7 +129,7 @@ namespace titandb {
         }
 
         return IsMetadataExpired(ikey, metadata) ||
-               (metadata.Type() == kRedisBitmap && RedisBitmap::IsEmptySegment(value));
+               (metadata.Type() == kRedisBitmap && RedisDB::IsEmptySegment(value));
     }
 
 }  // namespace titandb

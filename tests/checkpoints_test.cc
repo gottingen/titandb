@@ -19,12 +19,12 @@
 #include <memory>
 
 #include "test_base.h"
-#include "titandb/types/redis_string.h"
+#include "titandb/redis_db.h"
 
 class RedisStringTest : public TestBase {
 protected:
     explicit RedisStringTest() {
-        string_ = std::make_unique<titandb::RedisString>(storage_, "string_ns");
+        string_ = std::make_unique<titandb::RedisDB>(storage_, "string_ns");
         key_ = "test-string-key";
         pairs_ = {
                 {"test-string-key1", "test-strings-value1"},
@@ -38,7 +38,7 @@ protected:
 
     ~RedisStringTest() override = default;
 
-    std::unique_ptr<titandb::RedisString> string_;
+    std::unique_ptr<titandb::RedisDB> string_;
     std::vector<titandb::StringPair> pairs_;
 };
 

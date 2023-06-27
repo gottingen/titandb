@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-#include "titandb/types/redis_hash.h"
+#include "titandb/redis_db.h"
 
 #include <rocksdb/status.h>
 
@@ -27,27 +27,23 @@
 
 namespace titandb {
 
-    rocksdb::Status RedisHash::GetMetadata(const Slice &ns_key, HashMetadata *metadata) {
-        return RedisDB::GetMetadata(kRedisHash, ns_key, metadata);
-    }
-
-    rocksdb::Status RedisHash::Size(const Slice &user_key, uint32_t *ret) {
+    rocksdb::Status RedisDB::HashSize(const Slice &user_key, uint32_t *ret) {
         *ret = 0;
 
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
         HashMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok()) return s;
         *ret = metadata.size;
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisHash::Get(const Slice &user_key, const Slice &field, std::string *value) {
+    rocksdb::Status RedisDB::Get(const Slice &user_key, const Slice &field, std::string *value) {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
         HashMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok()) return s;
         LatestSnapShot ss(storage_);
         rocksdb::ReadOptions read_options;
@@ -57,7 +53,7 @@ namespace titandb {
         return storage_->Get(read_options, sub_key, value);
     }
 
-    rocksdb::Status RedisHash::IncrBy(const Slice &user_key, const Slice &field, int64_t increment, int64_t *ret) {
+    rocksdb::Status RedisDB::IncrBy(const Slice &user_key, const Slice &field, int64_t increment, int64_t *ret) {
         bool exists = false;
         int64_t old_value = 0;
 
@@ -66,7 +62,7 @@ namespace titandb {
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         HashMetadata metadata;
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok() && !s.IsNotFound()) return s;
 
         std::string sub_key;
@@ -104,7 +100,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisHash::IncrByFloat(const Slice &user_key, const Slice &field, double increment, double *ret) {
+    rocksdb::Status RedisDB::IncrByFloat(const Slice &user_key, const Slice &field, double increment, double *ret) {
         bool exists = false;
         double old_value = 0;
 
@@ -113,7 +109,7 @@ namespace titandb {
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         HashMetadata metadata;
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok() && !s.IsNotFound()) return s;
 
         std::string sub_key;
@@ -149,7 +145,7 @@ namespace titandb {
     }
 
     rocksdb::Status
-    RedisHash::MGet(const Slice &user_key, const std::vector<std::string_view> &fields, std::vector<std::string> *values,
+    RedisDB::MGet(const Slice &user_key, const std::vector<std::string_view> &fields, std::vector<std::string> *values,
                std::vector<rocksdb::Status> *statuses) {
         values->clear();
         statuses->clear();
@@ -157,7 +153,7 @@ namespace titandb {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
         HashMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok()) {
             return s;
         }
@@ -191,11 +187,11 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisHash::Set(const Slice &user_key, const Slice &field, const Slice &value, int *ret) {
+    rocksdb::Status RedisDB::Set(const Slice &user_key, const Slice &field, const Slice &value, int *ret) {
         return MSet(user_key, {{field.ToString(), value.ToString()}}, false, ret);
     }
 
-    rocksdb::Status RedisHash::Delete(const Slice &user_key, const std::vector<std::string_view> &fields, int *ret) {
+    rocksdb::Status RedisDB::Delete(const Slice &user_key, const std::vector<std::string_view> &fields, int *ret) {
         *ret = 0;
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
@@ -205,7 +201,7 @@ namespace titandb {
         WriteBatchLogData log_data(kRedisHash);
         batch->PutLogData(log_data.Encode());
         LockGuard guard(storage_->GetLockManager(), ns_key);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string sub_key, value;
@@ -227,14 +223,14 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisHash::MSet(const Slice &user_key, const std::vector<FieldValue> &field_values, bool nx, int *ret) {
+    rocksdb::Status RedisDB::MSet(const Slice &user_key, const std::vector<FieldValue> &field_values, bool nx, int *ret) {
         *ret = 0;
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         HashMetadata metadata;
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok() && !s.IsNotFound()) return s;
 
         int added = 0;
@@ -276,7 +272,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisHash::RangeByLex(const Slice &user_key, const RangeLexSpec &spec,
+    rocksdb::Status RedisDB::RangeByLex(const Slice &user_key, const RangeLexSpec &spec,
                                      std::vector<FieldValue> *field_values) {
         field_values->clear();
         if (spec.count == 0) {
@@ -285,7 +281,7 @@ namespace titandb {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
         HashMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string start_member = spec.reversed ? spec.max : spec.min;
@@ -337,13 +333,13 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisHash::GetAll(const Slice &user_key, std::vector<FieldValue> *field_values, HashFetchType type) {
+    rocksdb::Status RedisDB::GetAll(const Slice &user_key, std::vector<FieldValue> *field_values, HashFetchType type) {
         field_values->clear();
 
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
         HashMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisHash,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string prefix_key, next_version_prefix_key;
@@ -372,10 +368,10 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisHash::Scan(const Slice &user_key, const Slice &cursor, uint64_t limit,
+    rocksdb::Status RedisDB::Scan(const Slice &user_key, const Slice &cursor, uint64_t limit,
                                const Slice &field_prefix, std::vector<std::string> *fields,
                                std::vector<std::string> *values) {
-        return SubKeyScanner::Scan(kRedisHash, user_key, cursor, limit, field_prefix, fields, values);
+        return SubKeyScanner(kRedisHash, user_key, cursor, limit, field_prefix, fields, values);
     }
 
 }  // namespace titandb

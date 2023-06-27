@@ -21,14 +21,8 @@
 
 #include "titandb/config.h"
 #include "titandb/storage/storage.h"
-#include "titandb/types/redis_string.h"
-#include "titandb/types/redis_bitmap.h"
-#include "titandb/types/redis_hash.h"
-#include "titandb/types/redis_set.h"
-#include "titandb/types/redis_sortedint.h"
-#include "titandb/storage/redis_db.h"
-#include "titandb/types/redis_list.h"
 #include "turbo/base/result_status.h"
+#include "titandb/redis_db.h"
 
 namespace titandb {
 
@@ -423,13 +417,7 @@ namespace titandb {
         Storage *_storage{nullptr};
         std::string _ns;
         const Config *_config;
-        std::unique_ptr<RedisString> _strings_db;
-        std::unique_ptr<RedisBitmap> _bitmap_db;
-        std::unique_ptr<RedisHash> _hash_db;
-        std::unique_ptr<RedisDB> _key_db;
-        std::unique_ptr<RedisList> _list_db;
-        std::unique_ptr<RedisSet> _set_db;
-        std::unique_ptr<RedisSortedInt> _sorted_int_db;
+        std::unique_ptr<RedisDB> _db;
     };
 }  // namespace titandb
 

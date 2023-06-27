@@ -19,7 +19,7 @@ namespace titandb {
 
     turbo::ResultStatus<bool> TitanDB::GetBit(const std::string_view &key, uint32_t offset) {
         bool value;
-        auto s = _bitmap_db->GetBit(key, offset, &value);
+        auto s = _db->GetBit(key, offset, &value);
         if (!s.ok()) {
             return turbo::Status(turbo::kUnavailable, s.ToString());
         }
@@ -28,7 +28,7 @@ namespace titandb {
 
     turbo::ResultStatus<bool> TitanDB::SetBit(const std::string_view &key, uint32_t offset, bool flag) {
         bool value;
-        auto s = _bitmap_db->SetBit(key, offset, flag, &value);
+        auto s = _db->SetBit(key, offset, flag, &value);
         if (!s.ok()) {
             return turbo::Status(turbo::kUnavailable, s.ToString());
         }
@@ -38,7 +38,7 @@ namespace titandb {
 
     turbo::ResultStatus<uint32_t> TitanDB::BitCount(const std::string_view &key, int64_t start, int64_t stop) {
         uint32_t value;
-        auto s = _bitmap_db->BitCount(key, start, stop, &value);
+        auto s = _db->BitCount(key, start, stop, &value);
         if (!s.ok()) {
             return turbo::Status(turbo::kUnavailable, s.ToString());
         }
@@ -48,7 +48,7 @@ namespace titandb {
     turbo::ResultStatus<int64_t> TitanDB::BitPos(const std::string_view &key, bool flag, int64_t start, int64_t stop) {
         int64_t value;
         bool stop_given = (stop != -1);
-        auto s = _bitmap_db->BitPos(key, flag, start, stop, stop_given, &value);
+        auto s = _db->BitPos(key, flag, start, stop, stop_given, &value);
         if (!s.ok()) {
             return turbo::Status(turbo::kUnavailable, s.ToString());
         }
@@ -59,7 +59,7 @@ namespace titandb {
     TitanDB::BitOP(BitOpFlags op, const std::string_view &dest_key, const std::string_view &key,
                    const std::vector<std::string_view> &keys) {
         int64_t value;
-        auto s = _bitmap_db->BitOp(op, dest_key, key, keys, &value);
+        auto s = _db->BitOp(op, dest_key, key, keys, &value);
         if (!s.ok()) {
             return turbo::Status(turbo::kUnavailable, s.ToString());
         }

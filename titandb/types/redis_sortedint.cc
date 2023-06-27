@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-#include "titandb/types/redis_sortedint.h"
+#include "titandb/redis_db.h"
 
 #include <iostream>
 #include <limits>
@@ -23,11 +23,7 @@
 
 namespace titandb {
 
-    rocksdb::Status RedisSortedInt::GetMetadata(const Slice &ns_key, SortedintMetadata *metadata) {
-        return RedisDB::GetMetadata(kRedisSortedint, ns_key, metadata);
-    }
-
-    rocksdb::Status RedisSortedInt::Add(const Slice &user_key, const std::vector<uint64_t> &ids, int *ret) {
+    rocksdb::Status RedisDB::SIAdd(const Slice &user_key, const std::vector<uint64_t> &ids, int *ret) {
         *ret = 0;
 
         std::string ns_key;
@@ -35,7 +31,7 @@ namespace titandb {
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         SortedintMetadata metadata;
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSortedint,ns_key, &metadata);
         if (!s.ok() && !s.IsNotFound()) return s;
 
         std::string value;
@@ -61,7 +57,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisSortedInt::Remove(const Slice &user_key, const std::vector<uint64_t> &ids, int *ret) {
+    rocksdb::Status RedisDB::SIRemove(const Slice &user_key, const std::vector<uint64_t> &ids, int *ret) {
         *ret = 0;
 
         std::string ns_key;
@@ -69,7 +65,7 @@ namespace titandb {
 
         LockGuard guard(storage_->GetLockManager(), ns_key);
         SortedintMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSortedint,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string value, sub_key;
@@ -93,19 +89,19 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisSortedInt::Card(const Slice &user_key, int *ret) {
+    rocksdb::Status RedisDB::SICard(const Slice &user_key, int *ret) {
         *ret = 0;
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
         SortedintMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSortedint,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
         *ret = static_cast<int>(metadata.size);
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisSortedInt::Range(const Slice &user_key, uint64_t cursor_id, uint64_t offset, uint64_t limit,
+    rocksdb::Status RedisDB::SIRange(const Slice &user_key, uint64_t cursor_id, uint64_t offset, uint64_t limit,
                                      bool reversed, std::vector<uint64_t> *ids) {
         ids->clear();
 
@@ -113,7 +109,7 @@ namespace titandb {
         AppendNamespacePrefix(user_key, &ns_key);
 
         SortedintMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSortedint,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string prefix, next_version_prefix, start_key, start_buf;
@@ -149,7 +145,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisSortedInt::RangeByValue(const Slice &user_key, SortedintRangeSpec spec, std::vector<uint64_t> *ids,
+    rocksdb::Status RedisDB::SIRangeByValue(const Slice &user_key, SortedintRangeSpec spec, std::vector<uint64_t> *ids,
                                             int *size) {
         if (size) *size = 0;
         if (ids) ids->clear();
@@ -158,7 +154,7 @@ namespace titandb {
         AppendNamespacePrefix(user_key, &ns_key);
 
         SortedintMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSortedint,ns_key, &metadata);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
 
         std::string start_buf, start_key, prefix_key, next_version_prefix_key;
@@ -205,12 +201,12 @@ namespace titandb {
     }
 
     rocksdb::Status
-    RedisSortedInt::MExist(const Slice &user_key, const std::vector<uint64_t> &ids, std::vector<int> *exists) {
+    RedisDB::SIMExist(const Slice &user_key, const std::vector<uint64_t> &ids, std::vector<int> *exists) {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
         SortedintMetadata metadata(false);
-        rocksdb::Status s = GetMetadata(ns_key, &metadata);
+        rocksdb::Status s = GetMetadata(kRedisSortedint,ns_key, &metadata);
         if (!s.ok()) return s;
 
         LatestSnapShot ss(storage_);
@@ -232,7 +228,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    turbo::Status RedisSortedInt::ParseRangeSpec(const std::string &min, const std::string &max, SortedintRangeSpec *spec) {
+    turbo::Status RedisDB::SIParseRangeSpec(const std::string &min, const std::string &max, SortedintRangeSpec *spec) {
         if (min == "+inf" || max == "-inf") {
             return turbo::InternalError("");
         }
