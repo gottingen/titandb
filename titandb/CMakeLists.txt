@@ -1,5 +1,5 @@
 #
-# Copyright 2023 The Carbin Authors.
+# Copyright 2023 The titan-search Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,6 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+###########################################################################
+# below are examples, after initialization, modify it to your own.
+###########################################################################
 
 file(GLOB ST_SRC  "storage/*.cc")
 file(GLOB COM_SRC  "common/*.cc")
@@ -21,7 +24,7 @@ file(GLOB SS_SRC  "stats/*.cc")
 file(GLOB CONF_SRC  "config/*.cc")
 file(GLOB DB_SRC  "db/*.cc")
 
-set(TEDIS_SRC
+set(TITANDB_SRC
         db.cc
         ${ST_SRC}
         ${COM_SRC}
@@ -35,9 +38,9 @@ carbin_cc_library(
         NAMESPACE titandb
         NAME titandb
         SOURCES
-        ${TEDIS_SRC}
+        ${TITANDB_SRC}
         COPTS
-        ${USER_CXX_FLAGS}
+        ${CARBIN_CXX_OPTIONS}
         DEPS
         ${CARBIN_DEPS_LINK}
         PUBLIC

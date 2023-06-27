@@ -13,7 +13,8 @@
 // limitations under the License.
 //
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 
 #include <memory>
 
@@ -22,31 +23,27 @@
 
 class RedisBitmapTest : public TestBase {
 protected:
-    explicit RedisBitmapTest() { bitmap_ = std::make_unique<titandb::RedisBitmap>(storage_, "bitmap_ns"); }
+    explicit RedisBitmapTest() { bitmap_ = std::make_unique<titandb::RedisBitmap>(storage_, "bitmap_ns"); key_ = "test_bitmap_key"; }
 
     ~RedisBitmapTest() override = default;
-
-    void SetUp() override { key_ = "test_bitmap_key"; }
-
-    void TearDown() override {}
 
     std::unique_ptr<titandb::RedisBitmap> bitmap_;
 };
 
-TEST_F(RedisBitmapTest, GetAndSetBit) {
+TEST_CASE_FIXTURE(RedisBitmapTest, "GetAndSetBit") {
     uint32_t offsets[] = {0, 123, 1024 * 8, 1024 * 8 + 1, 3 * 1024 * 8, 3 * 1024 * 8 + 1};
     for (const auto &offset: offsets) {
         bool bit = false;
         bitmap_->GetBit(key_, offset, &bit);
-        EXPECT_FALSE(bit);
+        CHECK_FALSE(bit);
         bitmap_->SetBit(key_, offset, true, &bit);
         bitmap_->GetBit(key_, offset, &bit);
-        EXPECT_TRUE(bit);
+        CHECK(bit);
     }
     bitmap_->Del(key_);
 }
 
-TEST_F(RedisBitmapTest, BitCount) {
+TEST_CASE_FIXTURE(RedisBitmapTest, "BitCount") {
     uint32_t offsets[] = {0, 123, 1024 * 8, 1024 * 8 + 1, 3 * 1024 * 8, 3 * 1024 * 8 + 1};
     for (const auto &offset: offsets) {
         bool bit = false;
@@ -54,25 +51,25 @@ TEST_F(RedisBitmapTest, BitCount) {
     }
     uint32_t cnt = 0;
     bitmap_->BitCount(key_, 0, 4 * 1024, &cnt);
-    EXPECT_EQ(cnt, 6);
+    CHECK_EQ(cnt, 6);
     bitmap_->BitCount(key_, 0, -1, &cnt);
-    EXPECT_EQ(cnt, 6);
+    CHECK_EQ(cnt, 6);
     bitmap_->Del(key_);
 }
 
-TEST_F(RedisBitmapTest, BitPosClearBit) {
+TEST_CASE_FIXTURE(RedisBitmapTest, "BitPosClearBit") {
     int64_t pos = 0;
     bool old_bit = false;
     for (int i = 0; i < 1024 + 16; i++) {
         bitmap_->BitPos(key_, false, 0, -1, true, &pos);
-        EXPECT_EQ(pos, i);
+        CHECK_EQ(pos, i);
         bitmap_->SetBit(key_, i, true, &old_bit);
-        EXPECT_FALSE(old_bit);
+        CHECK_FALSE(old_bit);
     }
     bitmap_->Del(key_);
 }
 
-TEST_F(RedisBitmapTest, BitPosSetBit) {
+TEST_CASE_FIXTURE(RedisBitmapTest, "BitPosSetBit") {
     uint32_t offsets[] = {0, 123, 1024 * 8, 1024 * 8 + 16, 3 * 1024 * 8, 3 * 1024 * 8 + 16};
     for (const auto &offset: offsets) {
         bool bit = false;
@@ -82,7 +79,7 @@ TEST_F(RedisBitmapTest, BitPosSetBit) {
     int start_indexes[] = {0, 1, 124, 1025, 1027, 3 * 1024 + 1};
     for (size_t i = 0; i < sizeof(start_indexes) / sizeof(start_indexes[0]); i++) {
         bitmap_->BitPos(key_, true, start_indexes[i], -1, true, &pos);
-        EXPECT_EQ(pos, offsets[i]);
+        CHECK_EQ(pos, offsets[i]);
     }
     bitmap_->Del(key_);
 }

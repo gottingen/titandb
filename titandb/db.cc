@@ -25,9 +25,7 @@ namespace titandb {
         _key_db = std::make_unique<RedisDB>(_storage, _ns);
         _list_db = std::make_unique<RedisList>(_storage, _ns);
         _set_db = std::make_unique<RedisSet>(_storage, _ns);
-        _geo_db = std::make_unique<RedisGeo>(_storage, _ns);
         _sorted_int_db = std::make_unique<RedisSortedInt>(_storage, _ns);
-        _zset_db = std::make_unique<RedisZSet>(_storage, _ns);
 
     }
 
@@ -41,16 +39,6 @@ namespace titandb {
         return storage;
     }
 
-    turbo::Status TitanDB::FlushAll() {
-        auto s = _key_db->FlushAll();
-        return s.ok() ? turbo::OkStatus() : turbo::UnavailableError(s.ToString());
-    }
-
-    turbo::Status TitanDB::FlushDB() {
-        auto s = _key_db->FlushAll();
-        return s.ok() ? turbo::OkStatus() : turbo::UnavailableError(s.ToString());
-    }
-
     turbo::Status TitanDB::BeginTxn() {
         return _storage->BeginTxn();
     }
@@ -59,32 +47,4 @@ namespace titandb {
         return _storage->CommitTxn();
     }
 
-    void TitanDB::FlushBackUp(uint32_t num_backups_to_keep, uint32_t backup_max_keep_hours) {
-        _storage->PurgeOldBackups(num_backups_to_keep, backup_max_keep_hours);
-    }
-
-    turbo::Status TitanDB::BGSave() {
-        auto s = _storage->CreateBackup();
-        return s.ok() ? turbo::OkStatus() : turbo::UnavailableError(s.ToString());
-    }
-
-    turbo::Status TitanDB::Compact(const std::string_view &ns) {
-        std::string begin_key;
-        std::string end_key;
-        if (ns != kDefaultNamespace) {
-            std::string prefix;
-            ComposeNamespaceKey(ns, "", &prefix, false);
-            auto s = _key_db->FindKeyRangeWithPrefix(prefix, std::string(), &begin_key, &end_key);
-            if (!s.ok()) {
-                if (s.IsNotFound()) {
-                    return turbo::OkStatus();
-                }
-
-                return turbo::UnavailableError( s.ToString());
-            }
-        }
-
-        auto s = _storage->Compact(nullptr, nullptr);
-        return s.ok() ? turbo::OkStatus() : turbo::UnavailableError(s.ToString());
-    }
 }  // namespace titandb

@@ -24,7 +24,6 @@ int main() {
 
     std::unique_ptr<titandb::Config> config(new titandb::Config());
     config->db_dir = "testdb";
-    config->backup_dir = "testdb/backup";
     config->rocks_db.compression = rocksdb::CompressionType::kNoCompression;
     config->rocks_db.write_buffer_size = 1;
     config->rocks_db.block_size = 100;

@@ -31,6 +31,7 @@ namespace titandb {
 
         explicit RedisDB(titandb::Storage *storage, std::string ns = "");
 
+        void Refresh();
         rocksdb::Status GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata);
 
         rocksdb::Status GetRawMetadata(const Slice &ns_key, std::string *bytes);
@@ -67,11 +68,6 @@ namespace titandb {
         rocksdb::Status
         FindKeyRangeWithPrefix(const std::string &prefix, const std::string &prefix_end, std::string *begin,
                                std::string *end, rocksdb::ColumnFamilyHandle *cf_handle = nullptr);
-
-        rocksdb::Status ClearKeysOfSlot(const rocksdb::Slice &ns, int slot);
-
-        rocksdb::Status GetSlotKeysInfo(int slot, std::map<int, uint64_t> *slotskeys, std::vector<std::string> *keys,
-                                        int count);
 
     protected:
         titandb::Storage *storage_;

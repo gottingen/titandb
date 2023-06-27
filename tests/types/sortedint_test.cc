@@ -13,7 +13,8 @@
 // limitations under the License.
 //
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 
 #include <memory>
 
@@ -24,43 +25,40 @@ using namespace titandb;
 
 class RedisSortedintTest : public TestBase {
 protected:
-    explicit RedisSortedintTest() { sortedint_ = std::make_unique<titandb::RedisSortedInt>(storage_, "sortedint_ns"); }
+    explicit RedisSortedintTest() { sortedint_ = std::make_unique<titandb::RedisSortedInt>(storage_, "sortedint_ns");
+        key_ = "test-sortedint-key";
+        ids_ = {1, 2, 3, 4};}
 
     ~RedisSortedintTest() override = default;
-
-    void SetUp() override {
-        key_ = "test-sortedint-key";
-        ids_ = {1, 2, 3, 4};
-    }
 
     std::unique_ptr<titandb::RedisSortedInt> sortedint_;
     std::vector<uint64_t> ids_;
 };
 
-TEST_F(RedisSortedintTest, AddAndRemove) {
+TEST_CASE_FIXTURE(RedisSortedintTest, "AddAndRemove") {
     int ret = 0;
     rocksdb::Status s = sortedint_->Add(key_, ids_, &ret);
-    EXPECT_TRUE(s.ok() && static_cast<int>(ids_.size()) == ret);
+    CHECK((s.ok() && static_cast<int>(ids_.size()) == ret));
     s = sortedint_->Card(key_, &ret);
-    EXPECT_TRUE(s.ok() && static_cast<int>(ids_.size()) == ret);
+    CHECK((s.ok() && static_cast<int>(ids_.size()) == ret));
     s = sortedint_->Remove(key_, ids_, &ret);
-    EXPECT_TRUE(s.ok() && static_cast<int>(ids_.size()) == ret);
+    CHECK((s.ok() && static_cast<int>(ids_.size()) == ret));
     s = sortedint_->Card(key_, &ret);
-    EXPECT_TRUE(s.ok() && ret == 0);
+    CHECK((s.ok() && ret == 0));
     sortedint_->Del(key_);
 }
 
-TEST_F(RedisSortedintTest, Range) {
+TEST_CASE_FIXTURE(RedisSortedintTest, "Range") {
     int ret = 0;
     rocksdb::Status s = sortedint_->Add(key_, ids_, &ret);
-    EXPECT_TRUE(s.ok() && static_cast<int>(ids_.size()) == ret);
+    CHECK((s.ok() && static_cast<int>(ids_.size()) == ret));
     std::vector<uint64_t> ids;
     s = sortedint_->Range(key_, 0, 0, 20, false, &ids);
-    EXPECT_TRUE(s.ok() && ids_.size() == ids.size());
+    CHECK((s.ok() && ids_.size() == ids.size()));
     for (size_t i = 0; i < ids_.size(); i++) {
-        EXPECT_EQ(ids_[i], ids[i]);
+        CHECK_EQ(ids_[i], ids[i]);
     }
     s = sortedint_->Remove(key_, ids_, &ret);
-    EXPECT_TRUE(s.ok() && static_cast<int>(ids_.size()) == ret);
+    CHECK((s.ok() && static_cast<int>(ids_.size()) == ret));
     sortedint_->Del(key_);
 }

@@ -25,9 +25,7 @@
 #include "titandb/types/redis_bitmap.h"
 #include "titandb/types/redis_hash.h"
 #include "titandb/types/redis_set.h"
-#include "titandb/types/redis_geo.h"
 #include "titandb/types/redis_sortedint.h"
-#include "titandb/types/redis_stream.h"
 #include "titandb/storage/redis_db.h"
 #include "titandb/types/redis_list.h"
 #include "turbo/base/result_status.h"
@@ -395,89 +393,7 @@ namespace titandb {
         turbo::ResultStatus<std::vector<std::string>>
         SScan(const std::string_view &user_key, const std::string_view &cursor, uint64_t limit,
               const std::string &member_prefix);
-        // geo
 
-        turbo::ResultStatus<int> GeoAdd(const std::string_view &key, const std::vector<GeoPoint> &poi);
-
-        turbo::ResultStatus<double>
-        GeoDist(const std::string_view &user_key, const std::string_view &member_1, const std::string_view &member_2);
-
-        turbo::ResultStatus<std::vector<std::string>>
-        GeoHash(const std::string_view &user_key, const std::vector<std::string_view> &members);
-
-        turbo::ResultStatus<turbo::flat_hash_map<std::string, GeoPoint>>
-        GeoPos(const std::string_view &user_key, const std::vector<std::string_view> &members);
-
-        turbo::ResultStatus<std::vector<GeoPoint>>
-        GeoRadius(const std::string_view &user_key, double longitude, double latitude, double radius_meters, int count,
-                  DistanceSort sort, const std::string &store_key, bool store_distance, double unit_conversion);
-
-        turbo::ResultStatus<std::vector<GeoPoint>>
-        GeoRadiusByMember(const std::string_view &user_key, const std::string_view &member, double radius_meters,
-                          int count,
-                          DistanceSort sort, const std::string &store_key, bool store_distance, double unit_conversion);
-
-        // zset
-
-        turbo::ResultStatus<int>
-        ZAdd(const std::string_view &user_key, std::vector<MemberScore> *ms, ZAddFlags flags = ZAddFlags::Default());
-
-        turbo::ResultStatus<int> ZCard(const std::string_view &key);
-
-        turbo::ResultStatus<int>
-        ZCount(const std::string_view &key, double min = kMinScore, double max = kMaxScore, bool ex_min = false,
-               bool ex_max = false);
-
-        turbo::ResultStatus<double> ZIncrBy(const std::string_view &key, const std::string_view &member, double score);
-
-        turbo::ResultStatus<int> ZInterStore(const std::string_view &dst, const std::vector<KeyWeight> &keys_weights,
-                                             AggregateMethod aggregate_method);
-
-        turbo::ResultStatus<int>
-        ZLexCount(const std::string_view &key, const std::string_view &min, const std::string_view &max);
-
-        turbo::ResultStatus<std::vector<MemberScore>> ZPopMax(const std::string_view &key, int count);
-
-        turbo::ResultStatus<std::vector<MemberScore>> ZPopMin(const std::string_view &key, int count);
-
-        turbo::ResultStatus<std::vector<MemberScore>> ZRange(const std::string_view &key, int start = 0, int stop = -1);
-
-        turbo::ResultStatus<std::vector<MemberScore>>
-        ZRevRange(const std::string_view &key, int start = 0, int stop = -1);
-
-        turbo::ResultStatus<std::vector<std::string>>
-        ZRangeByLex(const std::string_view &key, const std::string_view &min, const std::string_view &max, int offset,
-                    int count, bool rev = false);
-
-        turbo::ResultStatus<std::vector<MemberScore>>
-        ZRangeByScore(const std::string_view &key, double min = kMinScore, double max = kMaxScore, int offset = 0,
-                      int count = std::numeric_limits<int32_t>::max(), bool ex_min = false,
-                      bool ex_max = false);
-
-        turbo::ResultStatus<int> ZRank(const std::string_view &key, const std::string_view &member);
-
-        turbo::ResultStatus<int> ZRem(const std::string_view &key, std::vector<std::string_view> & members);
-
-        turbo::ResultStatus<int> ZRemRangeByRank(const std::string_view &key, int start, int stop);
-
-        turbo::ResultStatus<int> ZRemRangeByScore(const std::string_view &key, double min = kMinScore, double max = kMaxScore, bool ex_min = false,
-                                                  bool ex_max = false);
-
-        turbo::ResultStatus<int> ZRemRangeByLex(const std::string_view &key, const std::string_view &min, const std::string_view &max);
-
-        turbo::ResultStatus<std::vector<MemberScore>> ZRevRangeByScore(const std::string_view &key, double min = kMinScore, double max = kMaxScore, int offset = 0,
-                                                  int count = std::numeric_limits<int32_t>::max(), bool ex_min = false,
-                                                  bool ex_max = false);
-
-        turbo::ResultStatus<int> ZRevRank(const std::string_view &key, const std::string_view &member);
-
-        turbo::ResultStatus<double> ZScore(const std::string_view &key, const std::string_view &member);
-
-        turbo::ResultStatus<std::vector<double>> ZMScore(const std::string_view &key, const std::vector<std::string_view> &members, double not_found_score = 0.0);
-
-        turbo::ResultStatus<std::vector<MemberScore>> ZScan(const std::string_view &key, int start, const std::string_view &cursor, const std::string_view &prefix, int limit);
-
-        turbo::ResultStatus<int> ZUnionStore(const std::string_view &key, const std::vector<KeyWeight> & kws, AggregateMethod am);
 
         // si
         turbo::ResultStatus<int> SIAdd(const std::string_view &key, const std::vector<uint64_t> &ids);
@@ -498,18 +414,6 @@ namespace titandb {
         SIRangeByValue(const std::string_view &key, const SortedintRangeSpec &spec);
 
         // db
-        turbo::Status Compact(const std::string_view &ns);
-
-        void FlushBackUp(uint32_t num_backups_to_keep = 0, uint32_t backup_max_keep_hours = 0);
-
-        turbo::Status BGSave();
-
-        turbo::ResultStatus<int> Stats(const std::string_view &key);
-
-        turbo::Status FlushAll();
-
-        turbo::Status FlushDB();
-        // txn
         turbo::Status BeginTxn();
 
         turbo::Status CommitTxn();
@@ -525,9 +429,7 @@ namespace titandb {
         std::unique_ptr<RedisDB> _key_db;
         std::unique_ptr<RedisList> _list_db;
         std::unique_ptr<RedisSet> _set_db;
-        std::unique_ptr<RedisGeo> _geo_db;
         std::unique_ptr<RedisSortedInt> _sorted_int_db;
-        std::unique_ptr<RedisZSet> _zset_db;
     };
 }  // namespace titandb
 

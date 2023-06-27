@@ -20,7 +20,7 @@
 #include <string>
 #include <utility>
 
-#include "turbo/time/clock.h"
+#include "turbo/times/clock.h"
 #include "titandb/types/redis_bitmap.h"
 
 namespace titandb {
@@ -32,15 +32,14 @@ namespace titandb {
         std::string ns, user_key, bytes = value.ToString();
         Metadata metadata(kRedisNone, false);
         rocksdb::Status s = metadata.Decode(bytes);
-        ExtractNamespaceKey(key, &ns, &user_key, stor_->IsSlotIdEncoded());
+        ExtractNamespaceKey(key, &ns, &user_key);
         if (!s.ok()) {
-            TURBO_LOG(WARNING) << "[compact_filter/metadata] Failed to decode,"
-                         << ", namespace: " << ns << ", key: " << user_key << ", err: " << s.ToString();
+            TLOG_WARN("[compact_filter/metadata] Failed to decode, namespace: {}, key: {}, err: {}", ns, user_key,
+                      s.ToString());
             return false;
         }
-        TURBO_DLOG(INFO) << "[compact_filter/metadata] "
-                   << "namespace: " << ns << ", key: " << user_key
-                   << ", result: " << (metadata.Expired() ? "deleted" : "reserved");
+        TLOG_INFO("[compact_filter/metadata] namespace: {}, key {}, result: {}", ns, user_key,
+                  (metadata.Expired() ? "deleted" : "reserved"));
         return metadata.Expired();
     }
 
@@ -51,7 +50,7 @@ namespace titandb {
         const auto cf_handles = stor_->GetCFHandles();
         // storage close the would delete the column family handler and DB
         if (!db || cf_handles->size() < 2) return turbo::UnavailableError("storage is closed");
-        ComposeNamespaceKey(ikey.GetNamespace(), ikey.GetKey(), &metadata_key, stor_->IsSlotIdEncoded());
+        ComposeNamespaceKey(ikey.GetNamespace(), ikey.GetKey(), &metadata_key);
 
         if (cached_key_.empty() || metadata_key != cached_key_) {
             std::string bytes;
@@ -95,16 +94,15 @@ namespace titandb {
     rocksdb::CompactionFilter::Decision
     SubKeyFilter::FilterBlobByKey(int level, const Slice &key, std::string *new_value,
                                   std::string *skip_until) const {
-        InternalKey ikey(key, stor_->IsSlotIdEncoded());
+        InternalKey ikey(key);
         Metadata metadata(kRedisNone, false);
         auto s = GetMetadata(ikey, &metadata);
         if (turbo::IsNotFound(s)) {
             return rocksdb::CompactionFilter::Decision::kRemove;
         }
         if (!s.ok()) {
-            TURBO_LOG(ERROR) << "[compact_filter/subkey] Failed to get metadata"
-                       << ", namespace: " << ikey.GetNamespace().ToString() << ", key: " << ikey.GetKey().ToString()
-                       << ", err: " << s.message();
+            TLOG_ERROR("[compact_filter/subkey] Failed to get metadata, namespace: {}, key: {}, err: {}",
+                       ikey.GetNamespace().ToString(), ikey.GetKey().ToString(), s.message());
             return rocksdb::CompactionFilter::Decision::kKeep;
         }
         // bitmap will be checked in Filter
@@ -118,20 +116,21 @@ namespace titandb {
 
     bool SubKeyFilter::Filter(int level, const Slice &key, const Slice &value, std::string *new_value,
                               bool *modified) const {
-        InternalKey ikey(key, stor_->IsSlotIdEncoded());
+        InternalKey ikey(key);
         Metadata metadata(kRedisNone, false);
         auto s = GetMetadata(ikey, &metadata);
         if (turbo::IsNotFound(s)) {
             return true;
         }
         if (!s.ok()) {
-            TURBO_LOG(ERROR) << "[compact_filter/subkey] Failed to get metadata"
-                       << ", namespace: " << ikey.GetNamespace().ToString() << ", key: " << ikey.GetKey().ToString()
-                       << ", err: " << s.message();
+            TLOG_ERROR("[compact_filter/subkey] Failed to get metadata, namespace: {}, key: {}, err: {}",
+                       ikey.GetNamespace().ToString(),
+                       ikey.GetKey().ToString(), s.message());
             return false;
         }
 
-        return IsMetadataExpired(ikey, metadata) || (metadata.Type() == kRedisBitmap && RedisBitmap::IsEmptySegment(value));
+        return IsMetadataExpired(ikey, metadata) ||
+               (metadata.Type() == kRedisBitmap && RedisBitmap::IsEmptySegment(value));
     }
 
 }  // namespace titandb

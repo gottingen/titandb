@@ -28,36 +28,21 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <shared_mutex>
 
 #include "titandb/config.h"
 #include "titandb/storage/lock_manager.h"
 #include "titandb/common/observer_or_unique.h"
-//#include "titandb/common/status.h"
 #include "turbo/base/status.h"
 
 const int kReplIdLength = 16;
 
-enum ColumnFamilyID {
-    kColumnFamilyIDDefault,
-    kColumnFamilyIDMetadata,
-    kColumnFamilyIDZSetScore,
-    kColumnFamilyIDPubSub,
-    kColumnFamilyIDPropagate,
-    kColumnFamilyIDStream,
-};
 
 namespace titandb {
 
-    constexpr const char *kPubSubColumnFamilyName = "pubsub";
-    constexpr const char *kZSetScoreColumnFamilyName = "zset_score";
     constexpr const char *kMetadataColumnFamilyName = "metadata";
     constexpr const char *kSubkeyColumnFamilyName = "default";
-    constexpr const char *kPropagateColumnFamilyName = "propagate";
-    constexpr const char *kStreamColumnFamilyName = "stream";
 
-    constexpr const char *kPropagateScriptCommand = "script";
-
-    constexpr const char *kLuaFunctionPrefix = "lua_f_";
 
     class Storage {
     public:
@@ -75,6 +60,8 @@ namespace titandb {
 
         void EmptyDB();
 
+        rocksdb::Status CreateCheckPoint(const std::string& db_snapshot_path);
+
         rocksdb::BlockBasedTableOptions InitTableOptions();
 
         void SetBlobDB(rocksdb::ColumnFamilyOptions *cf_options);
@@ -87,15 +74,7 @@ namespace titandb {
 
         turbo::Status SetDBOption(const std::string &key, const std::string &value);
 
-        turbo::Status CreateColumnFamilies(const rocksdb::Options &options);
-
-        turbo::Status CreateBackup();
-
-        void DestroyBackup();
-
-        turbo::Status RestoreFromBackup();
-
-        turbo::Status RestoreFromCheckpoint();
+        turbo::Status RestoreFromCheckpoint(const std::string &path);
 
         turbo::Status GetWALIter(rocksdb::SequenceNumber seq, std::unique_ptr<rocksdb::TransactionLogIterator> *iter);
 
@@ -124,13 +103,10 @@ namespace titandb {
 
         rocksdb::Status DeleteRange(const std::string &first_key, const std::string &last_key);
 
-        rocksdb::Status FlushScripts(const rocksdb::WriteOptions &options, rocksdb::ColumnFamilyHandle *cf_handle);
 
         bool WALHasNewData(rocksdb::SequenceNumber seq) { return seq <= LatestSeqNumber(); }
 
         turbo::Status InWALBoundary(rocksdb::SequenceNumber seq);
-
-        turbo::Status WriteToPropagateCF(const std::string &key, const std::string &value);
 
         rocksdb::Status Compact(const rocksdb::Slice *begin, const rocksdb::Slice *end);
 
@@ -145,8 +121,6 @@ namespace titandb {
         std::vector<rocksdb::ColumnFamilyHandle *> *GetCFHandles() { return &cf_handles_; }
 
         LockManager *GetLockManager() { return &lock_mgr_; }
-
-        void PurgeOldBackups(uint32_t num_backups_to_keep, uint32_t backup_max_keep_hours);
 
         uint64_t GetTotalSize(const std::string &ns = kDefaultNamespace);
 
@@ -166,8 +140,6 @@ namespace titandb {
 
         void IncrCompactionCount(uint64_t n) { compaction_count_.fetch_add(n); }
 
-        bool IsSlotIdEncoded() { return config_->slot_id_encoded; }
-
         const Config *GetConfig() { return config_; }
 
         turbo::Status BeginTxn();
@@ -180,71 +152,23 @@ namespace titandb {
 
         Storage &operator=(const Storage &) = delete;
 
-        // Full replication data files manager
-        class ReplDataManager {
-        public:
-            // Master side
-            static turbo::Status GetFullReplDataInfo(Storage *storage, std::string *files);
-
-            static int OpenDataFile(Storage *storage, const std::string &rel_file, uint64_t *file_size);
-
-            static turbo::Status
-            CleanInvalidFiles(Storage *storage, const std::string &dir, std::vector<std::string> valid_files);
-
-            struct CheckpointInfo {
-                std::atomic<time_t> create_time = 0;
-                std::atomic<time_t> access_time = 0;
-                uint64_t latest_seq = 0;
-            };
-
-            // Slave side
-            struct MetaInfo {
-                int64_t timestamp;
-                rocksdb::SequenceNumber seq;
-                std::string meta_data;
-                // [[filename, checksum]...]
-                std::vector<std::pair<std::string, uint32_t>> files;
-            };
-
-            static std::unique_ptr<rocksdb::WritableFile> NewTmpFile(Storage *storage, const std::string &dir,
-                                                                     const std::string &repl_file);
-
-            static turbo::Status SwapTmpFile(Storage *storage, const std::string &dir, const std::string &repl_file);
-
-            static bool
-            FileExists(Storage *storage, const std::string &dir, const std::string &repl_file, uint32_t crc);
-        };
-
-        bool ExistCheckpoint();
-
-        bool ExistSyncCheckpoint();
-
-        time_t GetCheckpointCreateTime() { return checkpoint_info_.create_time; }
-
-        void SetCheckpointAccessTime(time_t t) { checkpoint_info_.access_time = t; }
-
-        time_t GetCheckpointAccessTime() { return checkpoint_info_.access_time; }
+        bool ExistCheckpoint(const std::string&path);
 
         void SetDBInRetryableIOError(bool yes_or_no) { db_in_retryable_io_error_ = yes_or_no; }
 
         bool IsDBInRetryableIOError() { return db_in_retryable_io_error_; }
 
-        turbo::Status ShiftReplId();
-
-        std::string GetReplIdFromWalBySeq(rocksdb::SequenceNumber seq);
-
-        std::string GetReplIdFromDbEngine();
-
+    private:
+        turbo::Status TryCreateColumnFamilies(const rocksdb::Options &options);
+        rocksdb::Status writeToDB(const rocksdb::WriteOptions &options, rocksdb::WriteBatch *updates);
     private:
         rocksdb::DB *db_ = nullptr;
-        std::string replid_;
         time_t backup_creating_time_;
         rocksdb::BackupEngine *backup_ = nullptr;
         rocksdb::Env *env_;
         std::shared_ptr<rocksdb::SstFileManager> sst_file_manager_;
         std::shared_ptr<rocksdb::RateLimiter> rate_limiter_;
-        ReplDataManager::CheckpointInfo checkpoint_info_;
-        std::mutex checkpoint_mu_;
+        std::shared_mutex checkpoint_mu_;
         Config *config_ = nullptr;
         std::vector<rocksdb::ColumnFamilyHandle *> cf_handles_;
         LockManager lock_mgr_;
@@ -268,7 +192,6 @@ namespace titandb {
 
         rocksdb::WriteOptions write_opts_ = rocksdb::WriteOptions();
 
-        rocksdb::Status writeToDB(const rocksdb::WriteOptions &options, rocksdb::WriteBatch *updates);
     };
 
 }  // namespace titandb

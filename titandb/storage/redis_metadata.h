@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "titandb/common/encoding.h"
-#include "titandb/types/redis_stream_base.h"
 
 namespace titandb {
 
@@ -34,7 +33,6 @@ namespace titandb {
         kRedisHash,
         kRedisList,
         kRedisSet,
-        kRedisZSet,
         kRedisBitmap,
         kRedisSortedint,
         kRedisStream,
@@ -55,8 +53,7 @@ namespace titandb {
         kRedisCmdLMove,
     };
 
-    const std::vector<std::string> RedisTypeNames = {"none", "string", "hash", "list", "set",
-                                                     "zset", "bitmap", "sortedint", "stream"};
+    const std::vector<std::string> RedisTypeNames = {"none", "string", "hash", "list", "set", "bitmap", "sortedint"};
 
     constexpr const char *kErrMsgWrongType = "WRONGTYPE Operation against a key holding the wrong kind of value";
     constexpr const char *kErrMsgKeyExpired = "the key was expired";
@@ -70,17 +67,15 @@ namespace titandb {
         uint64_t avg_ttl = 0;
     };
 
-    void ExtractNamespaceKey(Slice ns_key, std::string *ns, std::string *key, bool slot_id_encoded);
+    void ExtractNamespaceKey(Slice ns_key, std::string *ns, std::string *key);
 
-    void ComposeNamespaceKey(const Slice &ns, const Slice &key, std::string *ns_key, bool slot_id_encoded);
-
-    void ComposeSlotKeyPrefix(const Slice &ns, int slotid, std::string *output);
+    void ComposeNamespaceKey(const Slice &ns, const Slice &key, std::string *ns_key);
 
     class InternalKey {
     public:
-        explicit InternalKey(Slice ns_key, Slice sub_key, uint64_t version, bool slot_id_encoded);
+        explicit InternalKey(Slice ns_key, Slice sub_key, uint64_t version);
 
-        explicit InternalKey(Slice input, bool slot_id_encoded);
+        explicit InternalKey(Slice input);
 
         ~InternalKey() = default;
 
@@ -101,8 +96,6 @@ namespace titandb {
         Slice key_;
         Slice sub_key_;
         uint64_t version_;
-        uint16_t slotid_;
-        bool slot_id_encoded_;
     };
 
     constexpr uint8_t METADATA_64BIT_ENCODING_MASK = 0x80;
@@ -179,11 +172,6 @@ namespace titandb {
         explicit SetMetadata(bool generate_version = true) : Metadata(kRedisSet, generate_version) {}
     };
 
-    class ZSetMetadata : public Metadata {
-    public:
-        explicit ZSetMetadata(bool generate_version = true) : Metadata(kRedisZSet, generate_version) {}
-    };
-
     class BitmapMetadata : public Metadata {
     public:
         explicit BitmapMetadata(bool generate_version = true) : Metadata(kRedisBitmap, generate_version) {}
@@ -206,19 +194,4 @@ namespace titandb {
         rocksdb::Status Decode(const std::string &bytes) override;
     };
 
-    class StreamMetadata : public Metadata {
-    public:
-        titandb::StreamEntryID last_generated_id;
-        titandb::StreamEntryID recorded_first_entry_id;
-        titandb::StreamEntryID max_deleted_entry_id;
-        titandb::StreamEntryID first_entry_id;
-        titandb::StreamEntryID last_entry_id;
-        uint64_t entries_added = 0;
-
-        explicit StreamMetadata(bool generate_version = true) : Metadata(kRedisStream, generate_version) {}
-
-        void Encode(std::string *dst) override;
-
-        rocksdb::Status Decode(const std::string &bytes) override;
-    };
 }  // namespace titandb

@@ -75,7 +75,7 @@ namespace titandb {
         read_options.snapshot = ss.GetSnapShot();
         uint32_t index = (offset / kBitmapSegmentBits) * kBitmapSegmentBytes;
         std::string sub_key, value;
-        InternalKey(ns_key, std::to_string(index), metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+        InternalKey(ns_key, std::to_string(index), metadata.version).Encode(&sub_key);
         s = storage_->Get(read_options, sub_key, &value);
         if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
         uint32_t byte_index = (offset / 8) % kBitmapSegmentBytes;
@@ -102,7 +102,7 @@ namespace titandb {
 
         std::string fragment, prefix_key;
         fragment.reserve(kBitmapSegmentBytes * 2);
-        InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix_key);
+        InternalKey(ns_key, "", metadata.version).Encode(&prefix_key);
 
         rocksdb::ReadOptions read_options;
         LatestSnapShot ss(storage_);
@@ -111,7 +111,7 @@ namespace titandb {
 
         auto iter = UniqueIterator(storage_, read_options);
         for (iter->Seek(prefix_key); iter->Valid() && iter->key().starts_with(prefix_key); iter->Next()) {
-            InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+            InternalKey ikey(iter->key());
             uint32_t n;
             if (!turbo::SimpleAtoi(ikey.GetSubKey().ToString(),&n )) {
                 return rocksdb::Status::InvalidArgument("");
@@ -188,7 +188,7 @@ namespace titandb {
 
         std::string sub_key, value;
         uint32_t index = (offset / kBitmapSegmentBits) * kBitmapSegmentBytes;
-        InternalKey(ns_key, std::to_string(index), metadata.version, storage_->IsSlotIdEncoded()).Encode(&sub_key);
+        InternalKey(ns_key, std::to_string(index), metadata.version).Encode(&sub_key);
         if (s.ok()) {
             s = storage_->Get(rocksdb::ReadOptions(), sub_key, &value);
             if (!s.ok() && !s.IsNotFound()) return s;
@@ -257,7 +257,7 @@ namespace titandb {
         // Don't use multi get to prevent large range query, and take too much memory
         std::string sub_key, value;
         for (uint32_t i = start_index; i <= stop_index; i++) {
-            InternalKey(ns_key, std::to_string(i * kBitmapSegmentBytes), metadata.version, storage_->IsSlotIdEncoded())
+            InternalKey(ns_key, std::to_string(i * kBitmapSegmentBytes), metadata.version)
                     .Encode(&sub_key);
             s = storage_->Get(read_options, sub_key, &value);
             if (!s.ok() && !s.IsNotFound()) return s;
@@ -314,7 +314,7 @@ namespace titandb {
         // Don't use multi get to prevent large range query, and take too much memory
         std::string sub_key, value;
         for (uint32_t i = start_index; i <= stop_index; i++) {
-            InternalKey(ns_key, std::to_string(i * kBitmapSegmentBytes), metadata.version, storage_->IsSlotIdEncoded())
+            InternalKey(ns_key, std::to_string(i * kBitmapSegmentBytes), metadata.version)
                     .Encode(&sub_key);
             s = storage_->Get(read_options, sub_key, &value);
             if (!s.ok() && !s.IsNotFound()) return s;
@@ -398,8 +398,7 @@ namespace titandb {
             for (uint64_t frag_index = 0; frag_index <= stop_index; frag_index++) {
                 for (const auto &meta_pair: meta_pairs) {
                     InternalKey(meta_pair.first, std::to_string(frag_index * kBitmapSegmentBytes),
-                                meta_pair.second.version,
-                                storage_->IsSlotIdEncoded())
+                                meta_pair.second.version)
                             .Encode(&sub_key);
                     auto s = storage_->Get(read_options, sub_key, &fragment);
                     if (!s.ok() && !s.IsNotFound()) {
@@ -517,8 +516,7 @@ namespace titandb {
                             frag_maxlen = kBitmapSegmentBytes;
                         }
                     }
-                    InternalKey(ns_key, std::to_string(frag_index * kBitmapSegmentBytes), res_metadata.version,
-                                storage_->IsSlotIdEncoded())
+                    InternalKey(ns_key, std::to_string(frag_index * kBitmapSegmentBytes), res_metadata.version)
                             .Encode(&sub_key);
                     batch->Put(sub_key, Slice(reinterpret_cast<char *>(frag_res.get()), frag_maxlen));
                 }

@@ -13,43 +13,44 @@
 // limitations under the License.
 //
 
-#include <gtest/gtest.h>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest/doctest.h"
 
 #include <memory>
 
 #include "titandb/storage/redis_metadata.h"
 #include "test_base.h"
-#include "turbo/time/clock.h"
+#include "turbo/times/clock.h"
 #include "titandb/types/redis_hash.h"
 
 using namespace titandb;
 
-TEST(InternalKey, EncodeAndDecode) {
+TEST_CASE("InternalKey, EncodeAndDecode") {
     Slice key = "test-metadata-key";
     Slice sub_key = "test-metadata-sub-key";
     Slice ns = "namespace";
     uint64_t version = 12;
     std::string ns_key;
 
-    ComposeNamespaceKey(ns, key, &ns_key, false);
-    InternalKey ikey(ns_key, sub_key, version, false);
-    ASSERT_EQ(ikey.GetKey(), key);
-    ASSERT_EQ(ikey.GetSubKey(), sub_key);
-    ASSERT_EQ(ikey.GetVersion(), version);
+    ComposeNamespaceKey(ns, key, &ns_key);
+    InternalKey ikey(ns_key, sub_key, version);
+    REQUIRE_EQ(ikey.GetKey(), key);
+    REQUIRE_EQ(ikey.GetSubKey(), sub_key);
+    REQUIRE_EQ(ikey.GetVersion(), version);
     std::string bytes;
     ikey.Encode(&bytes);
-    InternalKey ikey1(bytes, false);
-    EXPECT_EQ(ikey, ikey1);
+    InternalKey ikey1(bytes);
+    CHECK_EQ(ikey, ikey1);
 }
 
-TEST(Metadata, EncodeAndDeocde) {
+TEST_CASE("Metadata, EncodeAndDeocde") {
     std::string string_bytes;
     Metadata string_md(kRedisString);
     string_md.expire = 123000;
     string_md.Encode(&string_bytes);
     Metadata string_md1(kRedisNone);
     string_md1.Decode(string_bytes);
-    ASSERT_EQ(string_md, string_md1);
+    REQUIRE_EQ(string_md, string_md1);
     ListMetadata list_md;
     list_md.flags = 13;
     list_md.expire = 123000;
@@ -61,7 +62,7 @@ TEST(Metadata, EncodeAndDeocde) {
     std::string list_bytes;
     list_md.Encode(&list_bytes);
     list_md1.Decode(list_bytes);
-    ASSERT_EQ(list_md, list_md1);
+    REQUIRE_EQ(list_md, list_md1);
 }
 
 class RedisTypeTest : public TestBase {
@@ -81,72 +82,72 @@ protected:
     std::unique_ptr<titandb::RedisHash> hash_;
 };
 
-TEST_F(RedisTypeTest, GetMetadata) {
+TEST_CASE_FIXTURE(RedisTypeTest, "GetMetadata") {
     int ret = 0;
     std::vector<FieldValue> fvs;
     for (size_t i = 0; i < fields_.size(); i++) {
         fvs.emplace_back(std::string(fields_[i]), std::string(values_[i]));
     }
     rocksdb::Status s = hash_->MSet(key_, fvs, false, &ret);
-    EXPECT_TRUE(s.ok() && static_cast<int>(fvs.size()) == ret);
+    CHECK((s.ok() && static_cast<int>(fvs.size()) == ret));
     HashMetadata metadata;
     std::string ns_key;
     redis_->AppendNamespacePrefix(key_, &ns_key);
     redis_->GetMetadata(kRedisHash, ns_key, &metadata);
-    EXPECT_EQ(fvs.size(), metadata.size);
+    CHECK_EQ(fvs.size(), metadata.size);
     s = redis_->Del(key_);
-    EXPECT_TRUE(s.ok());
+    CHECK(s.ok());
 }
 
-TEST_F(RedisTypeTest, Expire) {
+TEST_CASE_FIXTURE(RedisTypeTest, "Expire") {
     int ret = 0;
     std::vector<FieldValue> fvs;
     for (size_t i = 0; i < fields_.size(); i++) {
         fvs.emplace_back(std::string(fields_[i]), std::string(values_[i]));
     }
     rocksdb::Status s = hash_->MSet(key_, fvs, false, &ret);
-    EXPECT_TRUE(s.ok() && static_cast<int>(fvs.size()) == ret);
+    CHECK((s.ok() && static_cast<int>(fvs.size()) == ret));
     int64_t now = 0;
     rocksdb::Env::Default()->GetCurrentTime(&now);
     redis_->Expire(key_, now * 1000 + 2000);
     int64_t ttl = 0;
     redis_->TTL(key_, &ttl);
-    ASSERT_GT(ttl, 0);
-    ASSERT_LE(ttl, 2000);
+    REQUIRE_GT(ttl, 0);
+    REQUIRE_LE(ttl, 2000);
     redis_->Del(key_);
 }
 
-TEST(Metadata, MetadataDecodingBackwardCompatibleSimpleKey) {
+TEST_CASE("Metadata, MetadataDecodingBackwardCompatibleSimpleKey") {
     auto expire_at = (turbo::ToTimeT(turbo::Now()) + 10) * 1000;
     Metadata md_old(kRedisString, true, false);
-    EXPECT_FALSE(md_old.Is64BitEncoded());
+    CHECK_FALSE(md_old.Is64BitEncoded());
     md_old.expire = expire_at;
     std::string encoded_bytes;
     md_old.Encode(&encoded_bytes);
-    EXPECT_EQ(encoded_bytes.size(), 5);
+    CHECK_EQ(encoded_bytes.size(), 5);
 
     Metadata md_new(kRedisNone, false, true);  // decoding existing metadata with 64-bit feature activated
     md_new.Decode(encoded_bytes);
-    EXPECT_FALSE(md_new.Is64BitEncoded());
-    EXPECT_EQ(md_new.Type(), kRedisString);
-    EXPECT_EQ(md_new.expire, expire_at);
+    CHECK_FALSE(md_new.Is64BitEncoded());
+    CHECK_EQ(md_new.Type(), kRedisString);
+    CHECK_EQ(md_new.expire, expire_at);
 }
 
-TEST(Metadata, MetadataDecoding64BitSimpleKey) {
+TEST_CASE("Metadata, MetadataDecoding64BitSimpleKey") {
     auto expire_at = (turbo::ToTimeT(turbo::Now()) + 10) * 1000;
     Metadata md_old(kRedisString, true, true);
-    EXPECT_TRUE(md_old.Is64BitEncoded());
+    CHECK(md_old.Is64BitEncoded());
     md_old.expire = expire_at;
     std::string encoded_bytes;
     md_old.Encode(&encoded_bytes);
-    EXPECT_EQ(encoded_bytes.size(), 9);
+    CHECK_EQ(encoded_bytes.size(), 9);
 }
 
-TEST(Metadata, MetadataDecodingBackwardCompatibleComplexKey) {
+TEST_CASE("Metadata, MetadataDecodingBackwardCompatibleComplexKey") {
     auto expire_at = (turbo::ToTimeT(turbo::Now()) + 100) * 1000;
     uint32_t size = 1000000000;
     Metadata md_old(kRedisHash, true, false);
-    EXPECT_FALSE(md_old.Is64BitEncoded());
+    CHECK_FALSE(md_old.Is64BitEncoded());
     md_old.expire = expire_at;
     md_old.size = size;
     std::string encoded_bytes;
@@ -154,38 +155,38 @@ TEST(Metadata, MetadataDecodingBackwardCompatibleComplexKey) {
 
     Metadata md_new(kRedisHash, false, true);
     md_new.Decode(encoded_bytes);
-    EXPECT_FALSE(md_new.Is64BitEncoded());
-    EXPECT_EQ(md_new.Type(), kRedisHash);
-    EXPECT_EQ(md_new.expire, expire_at);
-    EXPECT_EQ(md_new.size, size);
+    CHECK_FALSE(md_new.Is64BitEncoded());
+    CHECK_EQ(md_new.Type(), kRedisHash);
+    CHECK_EQ(md_new.expire, expire_at);
+    CHECK_EQ(md_new.size, size);
 }
 
-TEST(Metadata, Metadata64bitExpiration) {
+TEST_CASE("Metadata, Metadata64bitExpiration") {
     auto expire_at = turbo::ToUnixMillis(turbo::Now()) + 1000;
     Metadata md_src(kRedisString, true, true);
-    EXPECT_TRUE(md_src.Is64BitEncoded());
+    CHECK(md_src.Is64BitEncoded());
     md_src.expire = expire_at;
     std::string encoded_bytes;
     md_src.Encode(&encoded_bytes);
 
     Metadata md_decoded(kRedisNone, false, true);
     md_decoded.Decode(encoded_bytes);
-    EXPECT_TRUE(md_decoded.Is64BitEncoded());
-    EXPECT_EQ(md_decoded.Type(), kRedisString);
-    EXPECT_EQ(md_decoded.expire, expire_at);
+    CHECK(md_decoded.Is64BitEncoded());
+    CHECK_EQ(md_decoded.Type(), kRedisString);
+    CHECK_EQ(md_decoded.expire, expire_at);
 }
 
-TEST(Metadata, Metadata64bitSize) {
+TEST_CASE("Metadata, Metadata64bitSize") {
     uint64_t big_size = 100000000000;
     Metadata md_src(kRedisHash, true, true);
-    EXPECT_TRUE(md_src.Is64BitEncoded());
+    CHECK(md_src.Is64BitEncoded());
     md_src.size = big_size;
     std::string encoded_bytes;
     md_src.Encode(&encoded_bytes);
 
     Metadata md_decoded(kRedisNone, false, true);
     md_decoded.Decode(encoded_bytes);
-    EXPECT_TRUE(md_decoded.Is64BitEncoded());
-    EXPECT_EQ(md_decoded.Type(), kRedisHash);
-    EXPECT_EQ(md_decoded.size, big_size);
+    CHECK(md_decoded.Is64BitEncoded());
+    CHECK_EQ(md_decoded.Type(), kRedisHash);
+    CHECK_EQ(md_decoded.size, big_size);
 }

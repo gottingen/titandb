@@ -18,23 +18,24 @@
 #include <ctime>
 #include <map>
 #include <utility>
-
-#include "titandb/storage/redis_slot.h"
 #include "titandb/storage/db_util.h"
 #include "turbo/strings/numbers.h"
 #include "rocksdb/iterator.h"
 #include "titandb/storage/redis_metadata.h"
-#include "turbo/time/clock.h"
+#include "turbo/times/clock.h"
 #include "turbo/strings/str_split.h"
 #include "turbo/log/logging.h"
 
 namespace titandb {
 
     RedisDB::RedisDB(titandb::Storage *storage, std::string ns) : storage_(storage), namespace_(std::move(ns)) {
-        TURBO_CHECK(storage_);
+        TLOG_CHECK(storage_);
         metadata_cf_handle_ = storage->GetCFHandle("metadata");
     }
 
+    void RedisDB::Refresh() {
+        metadata_cf_handle_ = storage_->GetCFHandle("metadata");
+    }
     rocksdb::Status RedisDB::GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata) {
         std::string old_metadata;
         metadata->Encode(&old_metadata);
@@ -165,15 +166,7 @@ namespace titandb {
         uint16_t slot_id = 0;
         std::string ns_prefix, ns, user_key, value;
         if (namespace_ != kDefaultNamespace || keys != nullptr) {
-            if (storage_->IsSlotIdEncoded()) {
-                ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
-                if (!prefix.empty()) {
-                    PutFixed16(&ns_prefix, slot_id);
-                    ns_prefix.append(prefix);
-                }
-            } else {
                 AppendNamespacePrefix(prefix, &ns_prefix);
-            }
         }
 
         uint64_t ttl_sum = 0;
@@ -205,16 +198,14 @@ namespace titandb {
                     }
                 }
                 if (keys) {
-                    ExtractNamespaceKey(iter->key(), &ns, &user_key, storage_->IsSlotIdEncoded());
+                    ExtractNamespaceKey(iter->key(), &ns, &user_key);
                     keys->emplace_back(user_key);
                 }
             }
 
-            if (!storage_->IsSlotIdEncoded()) break;
             if (prefix.empty()) break;
-            if (++slot_id >= HASH_SLOTS_SIZE) break;
 
-            ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
+            ComposeNamespaceKey(namespace_, "", &ns_prefix);
             PutFixed16(&ns_prefix, slot_id);
             ns_prefix.append(prefix);
         }
@@ -238,16 +229,7 @@ namespace titandb {
         auto iter = UniqueIterator(storage_, read_options, metadata_cf_handle_);
 
         AppendNamespacePrefix(cursor, &ns_cursor);
-        if (storage_->IsSlotIdEncoded()) {
-            slot_start = cursor.empty() ? 0 : GetSlotIdFromKey({cursor.data(), cursor.size()});
-            ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
-            if (!prefix.empty()) {
-                PutFixed16(&ns_prefix, slot_start);
-                ns_prefix.append(prefix.data(), prefix.size());
-            }
-        } else {
             AppendNamespacePrefix(prefix, &ns_prefix);
-        }
 
         if (!cursor.empty()) {
             iter->Seek(ns_cursor);
@@ -270,12 +252,12 @@ namespace titandb {
                 value = iter->value().ToString();
                 metadata.Decode(value);
                 if (metadata.Expired()) continue;
-                ExtractNamespaceKey(iter->key(), &ns, &user_key, storage_->IsSlotIdEncoded());
+                ExtractNamespaceKey(iter->key(), &ns, &user_key);
                 keys->emplace_back(user_key);
                 cnt++;
             }
 
-            if (!storage_->IsSlotIdEncoded() || prefix.empty()) {
+            if (prefix.empty()) {
                 if (!keys->empty()) {
                     end_cursor->append(user_key);
                 }
@@ -287,28 +269,7 @@ namespace titandb {
                 break;
             }
 
-            if (++slot_id >= HASH_SLOTS_SIZE) {
-                break;
-            }
-
-            if (slot_id > slot_start + HASH_SLOTS_MAX_ITERATIONS) {
-                if (keys->empty()) {
-                    if (iter->Valid()) {
-                        ExtractNamespaceKey(iter->key(), &ns, &user_key, storage_->IsSlotIdEncoded());
-                        auto res = std::mismatch(prefix.data(), prefix.data() + prefix.size(), user_key.begin());
-                        if (res.first == prefix.data() + prefix.size()) {
-                            keys->emplace_back(user_key);
-                        }
-
-                        end_cursor->append(user_key);
-                    }
-                } else {
-                    end_cursor->append(user_key);
-                }
-                break;
-            }
-
-            ComposeNamespaceKey(namespace_, "", &ns_prefix, false);
+            ComposeNamespaceKey(namespace_, "", &ns_prefix);
             PutFixed16(&ns_prefix, slot_id);
             ns_prefix.append(prefix.data(), prefix.size());
             iter->Seek(ns_prefix);
@@ -341,7 +302,7 @@ namespace titandb {
 
     rocksdb::Status RedisDB::FlushDB() {
         std::string prefix, begin_key, end_key;
-        ComposeNamespaceKey(namespace_, "", &prefix, false);
+        ComposeNamespaceKey(namespace_, "", &prefix);
         auto s = FindKeyRangeWithPrefix(prefix, std::string(), &begin_key, &end_key);
         if (!s.ok()) {
             return rocksdb::Status::OK();
@@ -454,7 +415,7 @@ namespace titandb {
     }
 
     void RedisDB::AppendNamespacePrefix(const Slice &user_key, std::string *output) {
-        ComposeNamespaceKey(namespace_, user_key, output, storage_->IsSlotIdEncoded());
+        ComposeNamespaceKey(namespace_, user_key, output);
     }
 
     rocksdb::Status RedisDB::FindKeyRangeWithPrefix(const std::string &prefix, const std::string &prefix_end,
@@ -506,62 +467,6 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisDB::ClearKeysOfSlot(const rocksdb::Slice &ns, int slot) {
-        if (!storage_->IsSlotIdEncoded()) {
-            return rocksdb::Status::Aborted("It is not in cluster mode");
-        }
-
-        std::string prefix, prefix_end;
-        ComposeSlotKeyPrefix(ns, slot, &prefix);
-        ComposeSlotKeyPrefix(ns, slot + 1, &prefix_end);
-        auto s = storage_->DeleteRange(prefix, prefix_end);
-        if (!s.ok()) {
-            return s;
-        }
-        return rocksdb::Status::OK();
-    }
-
-    rocksdb::Status
-    RedisDB::GetSlotKeysInfo(int slot, std::map<int, uint64_t> *slotskeys, std::vector<std::string> *keys,
-                             int count) {
-        LatestSnapShot ss(storage_);
-        rocksdb::ReadOptions read_options;
-        read_options.snapshot = ss.GetSnapShot();
-        storage_->SetReadOptions(read_options);
-
-        auto iter = UniqueIterator(storage_, read_options, metadata_cf_handle_);
-        bool end = false;
-        for (int i = 0; i < HASH_SLOTS_SIZE; i++) {
-            std::string prefix;
-            ComposeSlotKeyPrefix(namespace_, i, &prefix);
-            uint64_t total = 0;
-            int cnt = 0;
-            if (slot != -1 && i != slot) {
-                (*slotskeys)[i] = total;
-                continue;
-            }
-            for (iter->Seek(prefix); iter->Valid(); iter->Next()) {
-                if (!iter->key().starts_with(prefix)) {
-                    break;
-                }
-                total++;
-                if (slot != -1 && count > 0 && !end) {
-                    // Get user key
-                    if (cnt < count) {
-                        std::string ns, user_key;
-                        ExtractNamespaceKey(iter->key(), &ns, &user_key, true);
-                        keys->push_back(user_key);
-                        cnt++;
-                    }
-                }
-            }
-            // Maybe cnt < count
-            if (cnt > 0) end = true;
-            (*slotskeys)[i] = total;
-        }
-        return rocksdb::Status::OK();
-    }
-
     rocksdb::Status
     SubKeyScanner::Scan(RedisType type, const Slice &user_key, const Slice &cursor, uint64_t limit,
                         const Slice &subkey_prefix, std::vector<std::string> *keys,
@@ -580,14 +485,14 @@ namespace titandb {
         auto iter = UniqueIterator(storage_, read_options);
         std::string match_prefix_key;
         if (!subkey_prefix.empty()) {
-            InternalKey(ns_key, subkey_prefix, metadata.version, storage_->IsSlotIdEncoded()).Encode(&match_prefix_key);
+            InternalKey(ns_key, subkey_prefix, metadata.version).Encode(&match_prefix_key);
         } else {
-            InternalKey(ns_key, "", metadata.version, storage_->IsSlotIdEncoded()).Encode(&match_prefix_key);
+            InternalKey(ns_key, "", metadata.version).Encode(&match_prefix_key);
         }
 
         std::string start_key;
         if (!cursor.empty()) {
-            InternalKey(ns_key, cursor, metadata.version, storage_->IsSlotIdEncoded()).Encode(&start_key);
+            InternalKey(ns_key, cursor, metadata.version).Encode(&start_key);
         } else {
             start_key = match_prefix_key;
         }
@@ -600,7 +505,7 @@ namespace titandb {
             if (!iter->key().starts_with(match_prefix_key)) {
                 break;
             }
-            InternalKey ikey(iter->key(), storage_->IsSlotIdEncoded());
+            InternalKey ikey(iter->key());
             keys->emplace_back(ikey.GetSubKey().ToString());
             if (values != nullptr) {
                 values->emplace_back(iter->value().ToString());

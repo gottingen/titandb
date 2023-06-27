@@ -21,7 +21,6 @@
 #include "titandb/storage/db_util.h"
 #include "rocksdb/status.h"
 #include "titandb/storage/redis_metadata.h"
-#include "titandb/types/redis_zset.h"
 
 namespace titandb {
 
@@ -29,8 +28,8 @@ namespace titandb {
                                               rocksdb::ColumnFamilyHandle *column_family, uint64_t *key_size,
                                               Slice subkeyleft, Slice subkeyright) {
         std::string prefix_key, next_version_prefix_key;
-        InternalKey(ns_key, subkeyleft, metadata.version, storage_->IsSlotIdEncoded()).Encode(&prefix_key);
-        InternalKey(ns_key, subkeyright, metadata.version + 1, storage_->IsSlotIdEncoded()).Encode(
+        InternalKey(ns_key, subkeyleft, metadata.version).Encode(&prefix_key);
+        InternalKey(ns_key, subkeyright, metadata.version + 1).Encode(
                 &next_version_prefix_key);
         auto key_range = rocksdb::Range(prefix_key, next_version_prefix_key);
         uint64_t tmp_size = 0;
@@ -57,10 +56,6 @@ namespace titandb {
                 return GetSetSize(ns_key, key_size);
             case RedisType::kRedisSortedint:
                 return GetSortedintSize(ns_key, key_size);
-            case RedisType::kRedisZSet:
-                return GetZsetSize(ns_key, key_size);
-            case RedisType::kRedisStream:
-                return GetStreamSize(ns_key, key_size);
             default:
                 return rocksdb::Status::NotFound("Not found ", user_key);
         }
@@ -95,18 +90,6 @@ namespace titandb {
         return GetApproximateSizes(metadata, ns_key, storage_->GetCFHandle(kSubkeyColumnFamilyName), key_size, buf);
     }
 
-    rocksdb::Status Disk::GetZsetSize(const Slice &ns_key, uint64_t *key_size) {
-        ZSetMetadata metadata(false);
-        rocksdb::Status s = RedisDB::GetMetadata(kRedisZSet, ns_key, &metadata);
-        if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
-        std::string score_bytes;
-        PutDouble(&score_bytes, kMinScore);
-        s = GetApproximateSizes(metadata, ns_key, storage_->GetCFHandle(kZSetScoreColumnFamilyName), key_size,
-                                score_bytes, score_bytes);
-        if (!s.ok()) return s;
-        return GetApproximateSizes(metadata, ns_key, storage_->GetCFHandle(kSubkeyColumnFamilyName), key_size);
-    }
-
     rocksdb::Status Disk::GetBitmapSize(const Slice &ns_key, uint64_t *key_size) {
         BitmapMetadata metadata(false);
         rocksdb::Status s = RedisDB::GetMetadata(kRedisBitmap, ns_key, &metadata);
@@ -123,13 +106,6 @@ namespace titandb {
         PutFixed64(&start_buf, 0);
         return GetApproximateSizes(metadata, ns_key, storage_->GetCFHandle(kSubkeyColumnFamilyName), key_size,
                                    start_buf, start_buf);
-    }
-
-    rocksdb::Status Disk::GetStreamSize(const Slice &ns_key, uint64_t *key_size) {
-        StreamMetadata metadata(false);
-        rocksdb::Status s = RedisDB::GetMetadata(kRedisStream, ns_key, &metadata);
-        if (!s.ok()) return s.IsNotFound() ? rocksdb::Status::OK() : s;
-        return GetApproximateSizes(metadata, ns_key, storage_->GetCFHandle(kStreamColumnFamilyName), key_size);
     }
 
 }  // namespace titandb
