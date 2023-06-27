@@ -198,9 +198,7 @@ namespace titandb {
         rocksdb::ColumnFamilyOptions cf_options(options);
         rocksdb::Status s = rocksdb::DB::Open(options, config_->db_dir, &tmp_db);
         if (s.ok()) {
-            std::vector<std::string> cf_names = {kMetadataColumnFamilyName, kZSetScoreColumnFamilyName,
-                                                 kPubSubColumnFamilyName,
-                                                 kPropagateColumnFamilyName, kStreamColumnFamilyName};
+            std::vector<std::string> cf_names = {kMetadataColumnFamilyName};
             std::vector<rocksdb::ColumnFamilyHandle *> cf_handles;
             s = tmp_db->CreateColumnFamilies(cf_options, cf_names, &cf_handles);
             if (!s.ok()) {
@@ -283,28 +281,10 @@ namespace titandb {
                 NewCompactOnExpiredTableCollectorFactory(kSubkeyColumnFamilyName, 0.3));
         SetBlobDB(&subkey_opts);
 
-        rocksdb::BlockBasedTableOptions pubsub_table_opts = InitTableOptions();
-        rocksdb::ColumnFamilyOptions pubsub_opts(options);
-        pubsub_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(pubsub_table_opts));
-        pubsub_opts.compaction_filter_factory = std::make_shared<PubSubFilterFactory>();
-        pubsub_opts.disable_auto_compactions = config_->rocks_db.disable_auto_compactions;
-        SetBlobDB(&pubsub_opts);
-
-        rocksdb::BlockBasedTableOptions propagate_table_opts = InitTableOptions();
-        rocksdb::ColumnFamilyOptions propagate_opts(options);
-        propagate_opts.table_factory.reset(rocksdb::NewBlockBasedTableFactory(propagate_table_opts));
-        propagate_opts.compaction_filter_factory = std::make_shared<PropagateFilterFactory>();
-        propagate_opts.disable_auto_compactions = config_->rocks_db.disable_auto_compactions;
-        SetBlobDB(&propagate_opts);
-
         std::vector<rocksdb::ColumnFamilyDescriptor> column_families;
         // Caution: don't change the order of column family, or the handle will be mismatched
         column_families.emplace_back(rocksdb::kDefaultColumnFamilyName, subkey_opts);
         column_families.emplace_back(kMetadataColumnFamilyName, metadata_opts);
-        column_families.emplace_back(kZSetScoreColumnFamilyName, subkey_opts);
-        column_families.emplace_back(kPubSubColumnFamilyName, pubsub_opts);
-        column_families.emplace_back(kPropagateColumnFamilyName, propagate_opts);
-        column_families.emplace_back(kStreamColumnFamilyName, subkey_opts);
 
         std::vector<std::string> old_column_families;
         auto s = rocksdb::DB::ListColumnFamilies(options, config_->db_dir, &old_column_families);
@@ -612,14 +592,6 @@ namespace titandb {
     rocksdb::ColumnFamilyHandle *Storage::GetCFHandle(const std::string &name) {
         if (name == kMetadataColumnFamilyName) {
             return cf_handles_[1];
-        } else if (name == kZSetScoreColumnFamilyName) {
-            return cf_handles_[2];
-        } else if (name == kPubSubColumnFamilyName) {
-            return cf_handles_[3];
-        } else if (name == kPropagateColumnFamilyName) {
-            return cf_handles_[4];
-        } else if (name == kStreamColumnFamilyName) {
-            return cf_handles_[5];
         }
         return cf_handles_[0];
     }
@@ -649,11 +621,6 @@ namespace titandb {
                                                                  rocksdb::DB::SizeApproximationFlags::INCLUDE_MEMTABLES);
 
         for (auto cf_handle: cf_handles_) {
-            if (cf_handle == GetCFHandle(kPubSubColumnFamilyName) ||
-                cf_handle == GetCFHandle(kPropagateColumnFamilyName)) {
-                continue;
-            }
-
             auto s = db.FindKeyRangeWithPrefix(prefix, std::string(), &begin_key, &end_key, cf_handle);
             if (!s.ok()) continue;
 
@@ -725,38 +692,6 @@ namespace titandb {
         return ObserverOrUniquePtr<rocksdb::WriteBatchBase>(new rocksdb::WriteBatch(), ObserverOrUnique::Unique);
     }
 
-    turbo::Status Storage::WriteToPropagateCF(const std::string &key, const std::string &value) {
-        auto batch = GetWriteBatchBase();
-        auto cf = GetCFHandle(kPropagateColumnFamilyName);
-        batch->Put(cf, key, value);
-        auto s = Write(write_opts_, batch->GetWriteBatch());
-        if (!s.ok()) {
-            return turbo::UnavailableError(s.ToString());
-        }
-        return turbo::OkStatus();
-    }
-
-    turbo::Status Storage::ShiftReplId() {
-        const char *charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        const int charset_len = static_cast<int>(strlen(charset));
-
-        // Do nothing if rsid psync is not enabled
-        if (!config_->use_rsid_psync) return turbo::OkStatus();
-
-        std::random_device rd;
-        std::mt19937 gen(rd() + getpid());
-        std::uniform_int_distribution<> distrib(0, charset_len - 1);
-        std::string rand_str;
-        for (int i = 0; i < kReplIdLength; i++) {
-            rand_str.push_back(charset[distrib(gen)]);
-        }
-        replid_ = rand_str;
-        TLOG_INFO("[replication] New replication id: {}", replid_);
-
-        // Write new replication id into db engine
-        return WriteToPropagateCF(kReplicationIdKey, replid_);
-    }
-
     std::string Storage::GetReplIdFromWalBySeq(rocksdb::SequenceNumber seq) {
         std::unique_ptr<rocksdb::TransactionLogIterator> iter = nullptr;
 
@@ -802,13 +737,6 @@ namespace titandb {
         if (!s.ok()) return "";
 
         return write_batch_handler.GetReplId();
-    }
-
-    std::string Storage::GetReplIdFromDbEngine() {
-        std::string replid_in_db;
-        auto cf = GetCFHandle(kPropagateColumnFamilyName);
-        auto s = db_->Get(rocksdb::ReadOptions(), cf, kReplicationIdKey, &replid_in_db);
-        return replid_in_db;
     }
 
     std::shared_lock<std::shared_mutex> Storage::ReadLockGuard() { return std::shared_lock(db_rw_lock_); }

@@ -32,30 +32,15 @@
 #include "titandb/config.h"
 #include "titandb/storage/lock_manager.h"
 #include "titandb/common/observer_or_unique.h"
-//#include "titandb/common/status.h"
 #include "turbo/base/status.h"
 
 const int kReplIdLength = 16;
 
-enum ColumnFamilyID {
-    kColumnFamilyIDDefault,
-    kColumnFamilyIDMetadata,
-    kColumnFamilyIDZSetScore,
-    kColumnFamilyIDPubSub,
-    kColumnFamilyIDPropagate,
-    kColumnFamilyIDStream,
-};
 
 namespace titandb {
 
-    constexpr const char *kPubSubColumnFamilyName = "pubsub";
-    constexpr const char *kZSetScoreColumnFamilyName = "zset_score";
     constexpr const char *kMetadataColumnFamilyName = "metadata";
     constexpr const char *kSubkeyColumnFamilyName = "default";
-    constexpr const char *kPropagateColumnFamilyName = "propagate";
-    constexpr const char *kStreamColumnFamilyName = "stream";
-
-    constexpr const char *kPropagateScriptCommand = "script";
 
 
     class Storage {
@@ -127,8 +112,6 @@ namespace titandb {
         bool WALHasNewData(rocksdb::SequenceNumber seq) { return seq <= LatestSeqNumber(); }
 
         turbo::Status InWALBoundary(rocksdb::SequenceNumber seq);
-
-        turbo::Status WriteToPropagateCF(const std::string &key, const std::string &value);
 
         rocksdb::Status Compact(const rocksdb::Slice *begin, const rocksdb::Slice *end);
 
@@ -226,8 +209,6 @@ namespace titandb {
         void SetDBInRetryableIOError(bool yes_or_no) { db_in_retryable_io_error_ = yes_or_no; }
 
         bool IsDBInRetryableIOError() { return db_in_retryable_io_error_; }
-
-        turbo::Status ShiftReplId();
 
         std::string GetReplIdFromWalBySeq(rocksdb::SequenceNumber seq);
 

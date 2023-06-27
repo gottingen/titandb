@@ -41,8 +41,6 @@ namespace titandb {
 
         rocksdb::Status GetListSize(const Slice &ns_key, uint64_t *key_size);
 
-        rocksdb::Status GetZsetSize(const Slice &ns_key, uint64_t *key_size);
-
         rocksdb::Status GetBitmapSize(const Slice &ns_key, uint64_t *key_size);
 
         rocksdb::Status GetSortedintSize(const Slice &ns_key, uint64_t *key_size);

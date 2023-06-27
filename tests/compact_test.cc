@@ -97,11 +97,6 @@ TEST_CASE("Compact, Filter") {
         CHECK_EQ(ikey.GetKey().ToString(), live_hash_key);
     }
 
-    iter = new_iterator("zset_score");
-    for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-        CHECK(false);  // never reach here
-    }
-
     Slice mk_with_ttl = "mk_with_ttl";
     hash->Set(mk_with_ttl, "f1", "v1", &ret);
     hash->Set(mk_with_ttl, "f2", "v2", &ret);
