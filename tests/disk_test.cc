@@ -128,27 +128,6 @@ TEST_F(RedisDiskTest, ListDisk) {
     list->Del(key_);
 }
 
-TEST_F(RedisDiskTest, ZsetDisk) {
-    std::unique_ptr<titandb::RedisZSet> zset = std::make_unique<titandb::RedisZSet>(storage_, "disk_ns_zet");
-    std::unique_ptr<titandb::Disk> disk = std::make_unique<titandb::Disk>(storage_, "disk_ns_zet");
-    key_ = "zsetdisk_key";
-    int ret = 0;
-    uint64_t approximate_size = 0;
-    std::vector<MemberScore> mscores(5);
-    std::vector<int> value_size{1024, 1024, 1024, 1024, 1024};
-    for (int i = 0; i < int(value_size.size()); i++) {
-        mscores[i].member = std::string(value_size[i], static_cast<char>('a' + i));
-        mscores[i].score = 1.0;
-        approximate_size += (key_.size() + 8 + mscores[i].member.size() + 8) * 2;
-    }
-    rocksdb::Status s = zset->Add(key_, ZAddFlags::Default(), &mscores, &ret);
-    CHECK(s.ok() && ret == 5);
-    uint64_t key_size = 0;
-    CHECK(disk->GetKeySize(key_, kRedisZSet, &key_size).ok());
-    EXPECT_GE(key_size, approximate_size * estimation_factor_);
-    EXPECT_LE(key_size, approximate_size / estimation_factor_);
-    zset->Del(key_);
-}
 
 TEST_F(RedisDiskTest, BitmapDisk) {
     std::unique_ptr<titandb::RedisBitmap> bitmap = std::make_unique<titandb::RedisBitmap>(storage_, "disk_ns_bitmap");

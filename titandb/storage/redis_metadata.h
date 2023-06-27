@@ -33,7 +33,6 @@ namespace titandb {
         kRedisHash,
         kRedisList,
         kRedisSet,
-        kRedisZSet,
         kRedisBitmap,
         kRedisSortedint,
         kRedisStream,
@@ -175,11 +174,6 @@ namespace titandb {
     class SetMetadata : public Metadata {
     public:
         explicit SetMetadata(bool generate_version = true) : Metadata(kRedisSet, generate_version) {}
-    };
-
-    class ZSetMetadata : public Metadata {
-    public:
-        explicit ZSetMetadata(bool generate_version = true) : Metadata(kRedisZSet, generate_version) {}
     };
 
     class BitmapMetadata : public Metadata {
