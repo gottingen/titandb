@@ -198,7 +198,6 @@ namespace titandb {
         std::unique_ptr<rocksdb::WriteBatchWithIndex> txn_write_batch_;
 
         rocksdb::WriteOptions write_opts_ = rocksdb::WriteOptions();
-        std::vector<rocksdb::ColumnFamilyDescriptor> column_families_;
 
     };
 
