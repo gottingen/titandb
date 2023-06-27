@@ -29,7 +29,6 @@ class TestBase {  // NOLINT
 protected:
     explicit TestBase() : config_(new titandb::Config()) {
         config_->db_dir = "testdb";
-        config_->backup_dir = "testdb/backup";
         config_->rocks_db.compression = rocksdb::CompressionType::kNoCompression;
         config_->rocks_db.write_buffer_size = 1;
         config_->rocks_db.block_size = 100;

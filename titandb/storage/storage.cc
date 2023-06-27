@@ -53,7 +53,6 @@ namespace titandb {
     }
 
     Storage::~Storage() {
-        DestroyBackup();
         CloseDB();
     }
 
@@ -303,98 +302,10 @@ namespace titandb {
         return turbo::OkStatus();
     }
 
-    turbo::Status Storage::CreateBackup() {
-        TLOG_INFO("[storage] Start to create new backup");
-        std::lock_guard<std::mutex> lg(config_->backup_mu);
-        std::string task_backup_dir = config_->backup_dir;
-
-        std::string tmpdir = task_backup_dir + ".tmp";
-        // Maybe there is a dirty tmp checkpoint, try to clean it
-        rocksdb::DestroyDB(tmpdir, rocksdb::Options());
-
-        // 1) Create checkpoint of rocksdb for backup
-        rocksdb::Checkpoint *checkpoint = nullptr;
-        rocksdb::Status s = rocksdb::Checkpoint::Create(db_, &checkpoint);
-        if (!s.ok()) {
-            TLOG_WARN("Failed to create checkpoint object for backup. Error: {}", s.ToString());
-            return turbo::UnavailableError(s.ToString());
-        }
-
-        std::unique_ptr<rocksdb::Checkpoint> checkpoint_guard(checkpoint);
-        s = checkpoint->CreateCheckpoint(tmpdir, config_->rocks_db.write_buffer_size * MiB);
-        if (!s.ok()) {
-            TLOG_WARN("Failed to create checkpoint (snapshot) for backup. Error: {}", s.ToString());
-            return turbo::UnavailableError(s.ToString());
-        }
-
-        // 2) Rename tmp backup to real backup dir
-        if (s = rocksdb::DestroyDB(task_backup_dir, rocksdb::Options()); !s.ok()) {
-            TLOG_WARN("[storage] Failed to clean old backup. Error: {}", s.ToString());
-            return turbo::UnavailableError(s.ToString());
-        }
-
-        if (s = env_->RenameFile(tmpdir, task_backup_dir); !s.ok()) {
-            TLOG_WARN("[storage] Failed to rename tmp backup. Error: {}", s.ToString());
-            // Just try best effort
-            if (s = rocksdb::DestroyDB(tmpdir, rocksdb::Options()); !s.ok()) {
-                TLOG_WARN("[storage] Failed to clean tmp backup. Error: {}", s.ToString());
-            }
-
-            return turbo::UnavailableError(s.ToString());
-        }
-
-        // 'backup_mu_' can guarantee 'backup_creating_time_' is thread-safe
-        backup_creating_time_ = static_cast<time_t>(turbo::ToTimeT(turbo::Now()));
-
-        TLOG_INFO("[storage] Success to create new backup");
-        return turbo::OkStatus();
-    }
-
-    void Storage::DestroyBackup() {
-        if (!backup_) {
-            return;
-        }
-        backup_->StopBackup();
-        delete backup_;
-        backup_ = nullptr;
-    }
-
-    turbo::Status Storage::RestoreFromBackup() {
-        // TODO(@ruoshan): assert role to be slave
-        // We must reopen the backup engine every time, as the files is changed
-        rocksdb::BackupEngineOptions bk_option(config_->backup_sync_dir);
-        auto s = rocksdb::BackupEngine::Open(db_->GetEnv(), bk_option, &backup_);
-        if (!s.ok()) return turbo::UnavailableError(s.ToString());
-
-        s = backup_->RestoreDBFromLatestBackup(config_->db_dir, config_->db_dir);
-        if (!s.ok()) {
-            TLOG_ERROR("[storage] Failed to restore database from the latest backup. Error: {}", s.ToString());
-        } else {
-            TLOG_INFO("[storage] RedisDB was restored from the latest backup");
-        }
-
-        // Reopen DB （should always try to reopen db even if restore failed, replication SST file CRC check may use it）
-        auto s2 = Open();
-        if (!s2.ok()) {
-            TLOG_ERROR("[storage] Failed to reopen the database. Error: {}", s2.message());
-            return turbo::UnavailableError(s2.ToString());
-        }
-
-        // Clean up backup engine
-        backup_->PurgeOldBackups(0);
-        DestroyBackup();
-
-        return s.ok() ? turbo::OkStatus() : turbo::UnavailableError(s.ToString());
-    }
-
-    turbo::Status Storage::RestoreFromCheckpoint() {
-        std::string checkpoint_dir = config_->sync_checkpoint_dir;
+    turbo::Status Storage::RestoreFromCheckpoint(const std::string &path) {
+        std::string checkpoint_dir = path;
         std::string tmp_dir = config_->db_dir + ".tmp";
-
-        // Clean old backups and checkpoints because server will work on the new db
-        PurgeOldBackups(0, 0);
-        rocksdb::DestroyDB(config_->checkpoint_dir, rocksdb::Options());
-
+        CloseDB();
         // Maybe there is no database directory
         auto s = env_->CreateDirIfMissing(config_->db_dir);
         if (!s.ok()) {
@@ -437,6 +348,7 @@ namespace titandb {
             }
             return turbo::UnavailableError(turbo::Format("Failed to open master checkpoint. Error: {}", s2.message()));
         }
+        TLOG_INFO("titandb success restore from checkpoint {}", path);
 
         // Destroy the origin database
         if (s = rocksdb::DestroyDB(tmp_dir, rocksdb::Options()); !s.ok()) {
@@ -446,36 +358,9 @@ namespace titandb {
     }
 
     void Storage::EmptyDB() {
-        // Clean old backups and checkpoints
-        PurgeOldBackups(0, 0);
-        rocksdb::DestroyDB(config_->checkpoint_dir, rocksdb::Options());
-
         auto s = rocksdb::DestroyDB(config_->db_dir, rocksdb::Options());
         if (!s.ok()) {
             TLOG_ERROR("[storage] Failed to destroy database. Error: {}", s.ToString());
-        }
-    }
-
-    void Storage::PurgeOldBackups(uint32_t num_backups_to_keep, uint32_t backup_max_keep_hours) {
-        time_t now = turbo::ToTimeT(turbo::Now());
-        std::lock_guard<std::mutex> lg(config_->backup_mu);
-        std::string task_backup_dir = config_->backup_dir;
-
-        // Return if there is no backup
-        auto s = env_->FileExists(task_backup_dir);
-        if (!s.ok()) return;
-
-        // No backup is needed to keep or the backup is expired, we will clean it.
-        bool backup_expired = (backup_max_keep_hours != 0 &&
-                               backup_creating_time_ + backup_max_keep_hours * 3600 < now);
-        if (num_backups_to_keep == 0 || backup_expired) {
-            s = rocksdb::DestroyDB(task_backup_dir, rocksdb::Options());
-            if (s.ok()) {
-                TLOG_INFO("[storage] Succeeded cleaning old backup that was created at {}", backup_creating_time_);
-            } else {
-                TLOG_INFO("[storage] Failed cleaning old backup that was created at {}. Error: {}",
-                          backup_creating_time_, s.ToString());
-            }
         }
     }
 
@@ -616,7 +501,7 @@ namespace titandb {
             if (!s.ok()) continue;
 
             rocksdb::Range r(begin_key, end_key);
-            db_->GetApproximateSizes(cf_handle, &r, 1, &size, (uint8_t)include_both);
+            db_->GetApproximateSizes(cf_handle, &r, 1, &size, (uint8_t) include_both);
             total_size += size;
         }
 
@@ -689,12 +574,10 @@ namespace titandb {
     std::unique_lock<std::shared_mutex> Storage::WriteLockGuard() { return std::unique_lock(db_rw_lock_); }
 
 
-    bool Storage::ExistCheckpoint() {
-        std::lock_guard<std::mutex> lg(checkpoint_mu_);
-        return env_->FileExists(config_->checkpoint_dir).ok();
+    bool Storage::ExistCheckpoint(const std::string &path) {
+        std::shared_lock lg(checkpoint_mu_);
+        return env_->FileExists(path).ok();
     }
-
-    bool Storage::ExistSyncCheckpoint() { return env_->FileExists(config_->sync_checkpoint_dir).ok(); }
 
     turbo::Status Storage::InWALBoundary(rocksdb::SequenceNumber seq) {
         std::unique_ptr<rocksdb::TransactionLogIterator> iter;
@@ -708,21 +591,26 @@ namespace titandb {
         return turbo::OkStatus();
     }
 
-
-    turbo::Status MkdirRecursively(rocksdb::Env *env, const std::string &dir) {
-        if (env->CreateDirIfMissing(dir).ok()) return turbo::OkStatus();
-
-        std::string parent;
-        for (auto pos = dir.find('/', 1); pos != std::string::npos; pos = dir.find('/', pos + 1)) {
-            parent = dir.substr(0, pos);
-            if (auto s = env->CreateDirIfMissing(parent); !s.ok()) {
-                TLOG_ERROR("[storage] Failed to create directory '{}' recursively. Error: {}", parent, s.ToString());
-                return turbo::UnavailableError("");
-            }
+    rocksdb::Status Storage::CreateCheckPoint(const std::string &db_snapshot_path) {
+        rocksdb::Checkpoint *checkpoint_ptr;
+        std::shared_lock lock(checkpoint_mu_);
+        if(env_->FileExists(db_snapshot_path).ok()) {
+            return rocksdb::Status::OK();
+        }
+        rocksdb::Status status = rocksdb::Checkpoint::Create(db_, &checkpoint_ptr);
+        std::unique_ptr<rocksdb::Checkpoint> checkpoint_guard(checkpoint_ptr);
+        if (!status.ok()) {
+            TLOG_ERROR("Checkpoint Create failed, msg:{}", status.ToString());
+            return status;
         }
 
-        if (env->CreateDirIfMissing(dir).ok()) return turbo::OkStatus();
+        status = (checkpoint_ptr)->CreateCheckpoint(db_snapshot_path);
 
-        return turbo::UnavailableError("");
+        if (!status.ok()) {
+            TLOG_WARN("Checkpoint CreateCheckpoint failed at snapshot path: {}, msg: {}", db_snapshot_path,
+                      status.ToString());
+        }
+        TLOG_INFO("titandb success create checkpoint {}", db_snapshot_path);
+        return status;
     }
 }  // namespace titandb

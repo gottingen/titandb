@@ -28,7 +28,6 @@ using namespace titandb;
 TEST_CASE("Compact, Filter") {
     Config *config = new Config();
     config->db_dir = "compactdb";
-    config->backup_dir = "compactdb/backup";
     config->rocks_db.compression = rocksdb::CompressionType::kNoCompression;
     config->slot_id_encoded = false;
 

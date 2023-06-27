@@ -31,6 +31,7 @@ namespace titandb {
 
         explicit RedisDB(titandb::Storage *storage, std::string ns = "");
 
+        void Refresh();
         rocksdb::Status GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata);
 
         rocksdb::Status GetRawMetadata(const Slice &ns_key, std::string *bytes);

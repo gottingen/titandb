@@ -33,6 +33,9 @@ namespace titandb {
         metadata_cf_handle_ = storage->GetCFHandle("metadata");
     }
 
+    void RedisDB::Refresh() {
+        metadata_cf_handle_ = storage_->GetCFHandle("metadata");
+    }
     rocksdb::Status RedisDB::GetMetadata(RedisType type, const Slice &ns_key, Metadata *metadata) {
         std::string old_metadata;
         metadata->Encode(&old_metadata);

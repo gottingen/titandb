@@ -25,7 +25,6 @@ using namespace titandb;
 int main() {
     std::unique_ptr<titandb::Config> config(new titandb::Config());
     config->db_dir = "testdb";
-    config->backup_dir = "testdb/backup";
     config->rocks_db.compression = rocksdb::CompressionType::kNoCompression;
     config->rocks_db.write_buffer_size = 1;
     config->rocks_db.block_size = 100;
@@ -154,9 +153,6 @@ int main() {
     auto s30 = db.Get("EXPIRE_KEY");
     fmt::printf("Get return: %s, value: %s\n", s30.status().ToString().c_str(), s30.value_or("expired").c_str());
 
-    // Compact
-    auto s31 = db.Compact("th");
-    fmt::printf("Compact return: %s\n", s31.ToString().c_str());
 
     return 0;
 }

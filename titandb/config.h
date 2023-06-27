@@ -44,14 +44,7 @@ namespace titandb {
         int max_db_size = 0;
         int max_io_mb = 0;
         int max_bitmap_to_string_mb = 16;
-        bool purge_backup_on_fullsync = false;
-        bool auto_resize_block_and_sst = true;
-        bool use_rsid_psync = false;
         std::string db_dir;
-        std::string backup_dir;  // GUARD_BY(backup_mu_)
-        std::string backup_sync_dir;
-        std::string checkpoint_dir;
-        std::string sync_checkpoint_dir;
         std::string db_name;
         CompactionCheckerRange compaction_checker_range{-1, -1};
         int64_t force_compact_file_age;
@@ -109,8 +102,6 @@ namespace titandb {
                 bool async_io;
             } read_options;
         } rocks_db;
-
-        mutable std::mutex backup_mu;
 
     };
 }  // namespace titandb

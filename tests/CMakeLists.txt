@@ -89,11 +89,10 @@ carbin_cc_test(
         DEPS titandb::titandb ${CARBIN_DEPS_LINK}
         COPTS ${USER_CXX_FLAGS}
 )
-#[[
+
 carbin_cc_test(
-        NAME observer_or_unique_test
-        SOURCES observer_or_unique_test.cc
+        NAME checkpoints_test
+        SOURCES checkpoints_test.cc
         DEPS titandb::titandb ${CARBIN_DEPS_LINK}
         COPTS ${USER_CXX_FLAGS}
 )
-]]

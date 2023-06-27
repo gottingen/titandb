@@ -28,6 +28,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <shared_mutex>
 
 #include "titandb/config.h"
 #include "titandb/storage/lock_manager.h"
@@ -59,6 +60,8 @@ namespace titandb {
 
         void EmptyDB();
 
+        rocksdb::Status CreateCheckPoint(const std::string& db_snapshot_path);
+
         rocksdb::BlockBasedTableOptions InitTableOptions();
 
         void SetBlobDB(rocksdb::ColumnFamilyOptions *cf_options);
@@ -71,13 +74,7 @@ namespace titandb {
 
         turbo::Status SetDBOption(const std::string &key, const std::string &value);
 
-        turbo::Status CreateBackup();
-
-        void DestroyBackup();
-
-        turbo::Status RestoreFromBackup();
-
-        turbo::Status RestoreFromCheckpoint();
+        turbo::Status RestoreFromCheckpoint(const std::string &path);
 
         turbo::Status GetWALIter(rocksdb::SequenceNumber seq, std::unique_ptr<rocksdb::TransactionLogIterator> *iter);
 
@@ -125,8 +122,6 @@ namespace titandb {
 
         LockManager *GetLockManager() { return &lock_mgr_; }
 
-        void PurgeOldBackups(uint32_t num_backups_to_keep, uint32_t backup_max_keep_hours);
-
         uint64_t GetTotalSize(const std::string &ns = kDefaultNamespace);
 
         void CheckDBSizeLimit();
@@ -157,9 +152,7 @@ namespace titandb {
 
         Storage &operator=(const Storage &) = delete;
 
-        bool ExistCheckpoint();
-
-        bool ExistSyncCheckpoint();
+        bool ExistCheckpoint(const std::string&path);
 
         void SetDBInRetryableIOError(bool yes_or_no) { db_in_retryable_io_error_ = yes_or_no; }
 
@@ -175,7 +168,7 @@ namespace titandb {
         rocksdb::Env *env_;
         std::shared_ptr<rocksdb::SstFileManager> sst_file_manager_;
         std::shared_ptr<rocksdb::RateLimiter> rate_limiter_;
-        std::mutex checkpoint_mu_;
+        std::shared_mutex checkpoint_mu_;
         Config *config_ = nullptr;
         std::vector<rocksdb::ColumnFamilyHandle *> cf_handles_;
         LockManager lock_mgr_;

@@ -414,18 +414,6 @@ namespace titandb {
         SIRangeByValue(const std::string_view &key, const SortedintRangeSpec &spec);
 
         // db
-        turbo::Status Compact(const std::string_view &ns);
-
-        void FlushBackUp(uint32_t num_backups_to_keep = 0, uint32_t backup_max_keep_hours = 0);
-
-        turbo::Status BGSave();
-
-        turbo::ResultStatus<int> Stats(const std::string_view &key);
-
-        turbo::Status FlushAll();
-
-        turbo::Status FlushDB();
-        // txn
         turbo::Status BeginTxn();
 
         turbo::Status CommitTxn();
