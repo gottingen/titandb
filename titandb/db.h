@@ -28,7 +28,13 @@ namespace titandb {
 
     class TitanDB {
     public:
+        TitanDB() = default;
+
+        virtual ~TitanDB() = default;
+
         explicit TitanDB(Storage *s, const std::string_view &ns = kDefaultNamespace);
+
+        turbo::Status init(Storage *s, const std::string_view &ns = kDefaultNamespace);
 
         static turbo::ResultStatus<Storage *> CreateStorage(Config *config);
 

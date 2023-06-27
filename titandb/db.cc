@@ -23,6 +23,14 @@ namespace titandb {
 
     }
 
+    turbo::Status TitanDB::init(Storage *s, const std::string_view &ns) {
+        _storage = s;
+        _ns = ns;
+        _config = _storage->GetConfig();
+        _db = std::make_unique<RedisDB>(_storage, _ns);
+        return _db?turbo::OkStatus():turbo::UnauthenticatedError("db new error");
+    }
+
     turbo::ResultStatus<Storage *> TitanDB::CreateStorage(Config *config) {
         auto *storage = new Storage(config);
         auto s = storage->Open();
