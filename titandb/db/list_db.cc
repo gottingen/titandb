@@ -19,7 +19,7 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::LPush(const std::string_view &key, const std::vector<std::string_view> &items) {
         int ret;
-        rocksdb::Status s = _list_db->Push(key, items, true, &ret);
+        rocksdb::Status s = _db->Push(key, items, true, &ret);
 
         if (!s.ok()) {
             return turbo::UnavailableError("");
@@ -29,7 +29,7 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::RPush(const std::string_view &key, const std::vector<std::string_view> &items) {
         int ret;
-        rocksdb::Status s = _list_db->Push(key, items, false, &ret);
+        rocksdb::Status s = _db->Push(key, items, false, &ret);
 
         if (!s.ok()) {
             return turbo::UnavailableError("");
@@ -39,7 +39,7 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::LPushX(const std::string_view &key, const std::vector<std::string_view> &items) {
         int ret;
-        rocksdb::Status s = _list_db->PushX(key, items, true, &ret);
+        rocksdb::Status s = _db->PushX(key, items, true, &ret);
 
         if (!s.ok()) {
             return turbo::UnavailableError("");
@@ -49,7 +49,7 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::RPushX(const std::string_view &key, const std::vector<std::string_view> &items) {
         int ret;
-        rocksdb::Status s = _list_db->PushX(key, items, false, &ret);
+        rocksdb::Status s = _db->PushX(key, items, false, &ret);
 
         if (!s.ok()) {
             return turbo::UnavailableError("");
@@ -59,7 +59,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::string> TitanDB::LPop(const std::string_view &key) {
         std::string ret;
-        rocksdb::Status s = _list_db->Pop(key, true, &ret);
+        rocksdb::Status s = _db->Pop(key, true, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -71,7 +71,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::vector<std::string>> TitanDB::LPop(const std::string_view &key, int32_t count) {
         std::vector<std::string> ret;
-        rocksdb::Status s = _list_db->PopMulti(key, true, count, &ret);
+        rocksdb::Status s = _db->PopMulti(key, true, count, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -83,7 +83,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::string> TitanDB::RPop(const std::string_view &key) {
         std::string ret;
-        rocksdb::Status s = _list_db->Pop(key, false, &ret);
+        rocksdb::Status s = _db->Pop(key, false, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -95,7 +95,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::vector<std::string>> TitanDB::RPop(const std::string_view &key, int32_t count) {
         std::vector<std::string> ret;
-        rocksdb::Status s = _list_db->PopMulti(key, false, count, &ret);
+        rocksdb::Status s = _db->PopMulti(key, false, count, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -107,7 +107,7 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::LRem(const std::string_view &key, const std::string_view &elem, uint32_t count) {
         int ret;
-        rocksdb::Status s = _list_db->Rem(key, count, elem, &ret);
+        rocksdb::Status s = _db->Rem(key, count, elem, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -121,7 +121,7 @@ namespace titandb {
     TitanDB::LInsert(const std::string_view &key, const std::string_view &pov, const std::string_view &elm,
                      bool before) {
         int ret;
-        rocksdb::Status s = _list_db->Insert(key, pov, elm, before, &ret);
+        rocksdb::Status s = _db->Insert(key, pov, elm, before, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -133,7 +133,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::vector<std::string>> TitanDB::LRange(const std::string_view &key, int start, int stop) {
         std::vector<std::string> ret;
-        rocksdb::Status s = _list_db->Range(key, start, stop, &ret);
+        rocksdb::Status s = _db->Range(key, start, stop, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -145,7 +145,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::string> TitanDB::LIndex(const std::string_view &key, int index) {
         std::string ret;
-        rocksdb::Status s = _list_db->Index(key, index, &ret);
+        rocksdb::Status s = _db->Index(key, index, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -156,7 +156,7 @@ namespace titandb {
     }
 
     turbo::Status TitanDB::LTrim(const std::string_view &key, int start, int stop) {
-        rocksdb::Status s = _list_db->Trim(key, start, stop);
+        rocksdb::Status s = _db->Trim(key, start, stop);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -167,7 +167,7 @@ namespace titandb {
     }
 
     turbo::Status TitanDB::LSet(const std::string_view &key, const std::string_view &value, int index) {
-        rocksdb::Status s = _list_db->Set(key, index, value);
+        rocksdb::Status s = _db->Set(key, index, value);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -179,7 +179,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::string> TitanDB::RPopPush(const std::string_view &src, const std::string_view &dst) {
         std::string ret;
-        rocksdb::Status s = _list_db->RPopLPush(src, dst, &ret);
+        rocksdb::Status s = _db->RPopLPush(src, dst, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -192,7 +192,7 @@ namespace titandb {
     turbo::ResultStatus<std::string>
     TitanDB::LMove(const std::string_view &src, const std::string_view &dst, bool src_left, bool dst_left) {
         std::string ret;
-        rocksdb::Status s = _list_db->LMove(src, dst, src_left, dst_left, &ret);
+        rocksdb::Status s = _db->LMove(src, dst, src_left, dst_left, &ret);
         if (!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }

@@ -31,7 +31,7 @@
 
 #include "titandb/storage/compact_filter.h"
 #include "titandb/storage/event_listener.h"
-#include "titandb/storage/redis_db.h"
+#include "titandb/redis_db.h"
 #include "titandb/storage/redis_metadata.h"
 #include "titandb/storage/table_properties_collector.h"
 #include "turbo/times/clock.h"

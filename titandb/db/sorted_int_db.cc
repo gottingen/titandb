@@ -18,7 +18,7 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::SIAdd(const std::string_view &key, const std::vector<uint64_t> &ids) {
         int ret;
-        auto s = _sorted_int_db->Add(key,ids, &ret);
+        auto s = _db->SIAdd(key,ids, &ret);
         if(!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -29,7 +29,7 @@ namespace titandb {
     }
     turbo::ResultStatus<int> TitanDB::SIRem(const std::string_view &key, const std::vector<uint64_t> &ids) {
         int ret;
-        auto s = _sorted_int_db->Remove(key,ids, &ret);
+        auto s = _db->SIRemove(key,ids, &ret);
         if(!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -40,7 +40,7 @@ namespace titandb {
     }
     turbo::ResultStatus<int> TitanDB::SICard(const std::string_view &key) {
         int ret;
-        auto s = _sorted_int_db->Card(key, &ret);
+        auto s = _db->SICard(key, &ret);
         if(!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -52,7 +52,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::vector<int>> TitanDB::SIExists(const std::string_view &key, const std::vector<uint64_t> &ids) {
         std::vector<int> ret;
-        auto s = _sorted_int_db->MExist(key, ids, &ret);
+        auto s = _db->SIMExist(key, ids, &ret);
         if(!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -64,7 +64,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::vector<uint64_t>> TitanDB::SIRange(const Slice &key, uint64_t cursor_id, uint64_t page, uint64_t limit) {
         std::vector<uint64_t> ret;
-        auto s = _sorted_int_db->Range(key, cursor_id, page, limit, false, &ret);
+        auto s = _db->SIRange(key, cursor_id, page, limit, false, &ret);
         if(!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -76,7 +76,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::vector<uint64_t>> TitanDB::SIRevRange(const Slice &key, uint64_t cursor_id, uint64_t page, uint64_t limit) {
         std::vector<uint64_t> ret;
-        auto s = _sorted_int_db->Range(key, cursor_id, page, limit, true, &ret);
+        auto s = _db->SIRange(key, cursor_id, page, limit, true, &ret);
         if(!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }
@@ -89,7 +89,7 @@ namespace titandb {
     turbo::ResultStatus<std::vector<uint64_t>> TitanDB::SIRangeByValue(const std::string_view &key, const SortedintRangeSpec& spec) {
         std::vector<uint64_t> ret;
         int uns;
-        auto s = _sorted_int_db->RangeByValue(key, spec, &ret, &uns);
+        auto s = _db->SIRangeByValue(key, spec, &ret, &uns);
         if(!s.ok() && !s.IsNotFound()) {
             return turbo::UnavailableError("");
         }

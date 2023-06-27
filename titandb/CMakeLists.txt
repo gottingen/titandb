@@ -26,6 +26,7 @@ file(GLOB DB_SRC  "db/*.cc")
 
 set(TITANDB_SRC
         db.cc
+        redis_db.cc
         ${ST_SRC}
         ${COM_SRC}
         ${TY_SRC}

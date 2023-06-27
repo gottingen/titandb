@@ -19,19 +19,19 @@
 #include <memory>
 
 #include "../test_base.h"
-#include "titandb/types/redis_set.h"
+#include "titandb/redis_db.h"
 
 using namespace titandb;
 
 class RedisSetTest : public TestBase {
 protected:
-    explicit RedisSetTest() { set_ = std::make_unique<titandb::RedisSet>(storage_, "set_ns"); key_ = "test-set-key";
+    explicit RedisSetTest() { set_ = std::make_unique<titandb::RedisDB>(storage_, "set_ns"); key_ = "test-set-key";
         fields_ = {"set-key-1", "set-key-2", "set-key-3", "set-key-4"};}
 
     ~RedisSetTest() override = default;
     
 
-    std::unique_ptr<titandb::RedisSet> set_;
+    std::unique_ptr<titandb::RedisDB> set_;
 };
 
 TEST_CASE_FIXTURE(RedisSetTest, "AddAndRemove") {

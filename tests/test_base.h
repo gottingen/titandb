@@ -21,8 +21,7 @@
 
 #include "turbo/files/filesystem.h"
 
-#include "titandb/storage/redis_db.h"
-#include "titandb/types/redis_hash.h"
+#include "titandb/redis_db.h"
 #include "turbo/log/logging.h"
 
 class TestBase {  // NOLINT

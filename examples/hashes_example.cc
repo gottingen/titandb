@@ -39,30 +39,30 @@ int main() {
     // HSet
 
     auto s = db.HSet("TEST_KEY1", "TEST_FIELD1", "TEST_VALUE1");
-    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.value());
+    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.status().ok() ? s.value() : -10000);
     s = db.HSet("TEST_KEY1", "TEST_FIELD2", "TEST_VALUE2");
-    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.value());
+    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.status().ok() ? s.value() : -10000);
 
     s = db.HSet("TEST_KEY2", "TEST_FIELD1", "TEST_VALUE1");
-    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.value());
+    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.status().ok() ? s.value() : -10000);
     s = db.HSet("TEST_KEY2", "TEST_FIELD2", "TEST_VALUE2");
-    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.value());
+    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.status().ok() ? s.value() : -10000);
     s = db.HSet("TEST_KEY2", "TEST_FIELD3", "TEST_VALUE3");
-    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.value());
+    fmt::printf("HSet return: %s, res = %d\n", s.status().ToString(), s.status().ok() ? s.value() : -10000);
 
     // HGet
     auto gs = db.HGet("TEST_KEY1", "TEST_FIELD1");
-    fmt::printf("HGet return: %s, value = %s\n", gs.status().ToString(), gs.value());
+    fmt::printf("HGet return: %s, value = %s\n", gs.status().ToString(), gs.status().ok() ? gs.value() : "not found");
     gs = db.HGet("TEST_KEY1", "TEST_FIELD2");
-    fmt::printf("HGet return: %s, value = %s\n", gs.status().ToString(), gs.value());
+    fmt::printf("HGet return: %s, value = %s\n", gs.status().ToString(), gs.status().ok() ? gs.value() : "not found");
     gs = db.HGet("TEST_KEY1", "TEST_FIELD3");
     fmt::printf("HGet return: %s, error: %s", gs.ok() ? "found" : "not found", gs.status().ToString());
-    if(gs.ok()) {
+    if (gs.ok()) {
         fmt::printf("HGet value: %s\n", gs.value());
     }
     gs = db.HGet("TEST_KEY_NOT_EXIST", "TEST_FIELD");
     fmt::printf("HGet return: %s, error: %s", gs.ok() ? "found" : "not found", gs.status().ToString());
-    if(gs.ok()) {
+    if (gs.ok()) {
         fmt::printf("HGet value: %s\n", gs.value());
     }
 
@@ -80,11 +80,11 @@ int main() {
     fields.push_back("TEST_FIELD2");
     auto mrs = db.HMGet("TEST_HASH", fields);
     fmt::printf("HMget return: %s\n", s.status().ToString().c_str());
-    if(mrs.ok()) {
+    if (mrs.ok()) {
         auto &vs = mrs.value();
         for (uint32_t idx = 0; idx != fields.size(); idx++) {
             fmt::printf("idx = %d, field = %s, value = %s\n",
-                   idx, fields[idx], vs[idx].ok() ? vs[idx].value() : "not found");
+                        idx, fields[idx], vs[idx].ok() ? vs[idx].value() : "not found");
         }
     }
 
@@ -93,7 +93,7 @@ int main() {
     fmt::printf("HLen return : %s, len = %lu\n", hls.status().ToString(), hls.ok() ? hls.value() : 0ul);
 
     std::error_code ec;
-    if(turbo::filesystem::exists("testdb")) {
+    if (turbo::filesystem::exists("testdb")) {
         turbo::filesystem::remove_all("testdb");
     }
     return 0;

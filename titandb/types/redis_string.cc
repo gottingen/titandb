@@ -13,8 +13,7 @@
 // limitations under the License.
 //
 
-#include "titandb/types/redis_string.h"
-
+#include "titandb/redis_db.h"
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -27,7 +26,7 @@
 
 namespace titandb {
 
-    std::vector<rocksdb::Status> RedisString::getRawValues(const std::vector<Slice> &keys,
+    std::vector<rocksdb::Status> RedisDB::getRawValues(const std::vector<Slice> &keys,
                                                            std::vector<std::string> *raw_values) {
         raw_values->clear();
 
@@ -58,7 +57,7 @@ namespace titandb {
         return statuses;
     }
 
-    rocksdb::Status RedisString::getRawValue(const std::string_view &ns_key, std::string *raw_value) {
+    rocksdb::Status RedisDB::getRawValue(const std::string_view &ns_key, std::string *raw_value) {
         raw_value->clear();
 
         rocksdb::ReadOptions read_options;
@@ -79,7 +78,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisString::getValue(const std::string_view &ns_key, std::string *value) {
+    rocksdb::Status RedisDB::getValue(const std::string_view &ns_key, std::string *value) {
         value->clear();
 
         std::string raw_value;
@@ -91,7 +90,7 @@ namespace titandb {
     }
 
     std::vector<rocksdb::Status>
-    RedisString::getValues(const std::vector<Slice> &ns_keys, std::vector<std::string> *values) {
+    RedisDB::getValues(const std::vector<Slice> &ns_keys, std::vector<std::string> *values) {
         auto statuses = getRawValues(ns_keys, values);
         for (size_t i = 0; i < ns_keys.size(); i++) {
             if (!statuses[i].ok()) continue;
@@ -101,7 +100,7 @@ namespace titandb {
         return statuses;
     }
 
-    rocksdb::Status RedisString::updateRawValue(const Slice &ns_key, const std::string_view &raw_value) {
+    rocksdb::Status RedisDB::updateRawValue(const Slice &ns_key, const std::string_view &raw_value) {
         auto batch = storage_->GetWriteBatchBase();
         WriteBatchLogData log_data(kRedisString);
         batch->PutLogData(log_data.Encode());
@@ -109,7 +108,7 @@ namespace titandb {
         return storage_->Write(storage_->DefaultWriteOptions(), batch->GetWriteBatch());
     }
 
-    rocksdb::Status RedisString::Append(const std::string_view &user_key, const std::string_view &value, int *ret) {
+    rocksdb::Status RedisDB::Append(const std::string_view &user_key, const std::string_view &value, int *ret) {
         *ret = 0;
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
@@ -127,7 +126,7 @@ namespace titandb {
         return updateRawValue(ns_key, raw_value);
     }
 
-    std::vector<rocksdb::Status> RedisString::MGet(const std::vector<std::string_view> &keys, std::vector<std::string> *values) {
+    std::vector<rocksdb::Status> RedisDB::MGet(const std::vector<std::string_view> &keys, std::vector<std::string> *values) {
         std::vector<std::string> ns_keys;
         ns_keys.reserve(keys.size());
         for (const auto &key: keys) {
@@ -143,13 +142,13 @@ namespace titandb {
         return getValues(slice_keys, values);
     }
 
-    rocksdb::Status RedisString::Get(const std::string_view &user_key, std::string *value) {
+    rocksdb::Status RedisDB::Get(const std::string_view &user_key, std::string *value) {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
         return getValue(ns_key, value);
     }
 
-    rocksdb::Status RedisString::GetEx(const std::string_view &user_key, std::string *value, uint64_t ttl) {
+    rocksdb::Status RedisDB::GetEx(const std::string_view &user_key, std::string *value, uint64_t ttl) {
         uint64_t expire = 0;
         if (ttl > 0) {
             uint64_t now = turbo::ToUnixMillis(turbo::Now());
@@ -177,7 +176,7 @@ namespace titandb {
     }
 
     rocksdb::Status
-    RedisString::GetSet(const std::string_view &user_key, const std::string_view &new_value, std::string *old_value) {
+    RedisDB::GetSet(const std::string_view &user_key, const std::string_view &new_value, std::string *old_value) {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
@@ -194,7 +193,7 @@ namespace titandb {
         return !write_status.ok() ? write_status : s;
     }
 
-    rocksdb::Status RedisString::GetDel(const std::string_view &user_key, std::string *value) {
+    rocksdb::Status RedisDB::GetDel(const std::string_view &user_key, std::string *value) {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
@@ -205,22 +204,22 @@ namespace titandb {
         return storage_->Delete(storage_->DefaultWriteOptions(), metadata_cf_handle_, ns_key);
     }
 
-    rocksdb::Status RedisString::Set(const std::string_view &user_key, const std::string_view &value) {
+    rocksdb::Status RedisDB::Set(const std::string_view &user_key, const std::string_view &value) {
         std::vector<StringPair> pairs{StringPair{user_key, value}};
         return MSet(pairs, 0);
     }
 
-    rocksdb::Status RedisString::SetEX(const std::string_view &user_key, const std::string_view &value, uint64_t ttl) {
+    rocksdb::Status RedisDB::SetEX(const std::string_view &user_key, const std::string_view &value, uint64_t ttl) {
         std::vector<StringPair> pairs{StringPair{user_key, value}};
         return MSet(pairs, ttl);
     }
 
-    rocksdb::Status RedisString::SetNX(const std::string_view &user_key, const std::string_view &value, uint64_t ttl, int *ret) {
+    rocksdb::Status RedisDB::SetNX(const std::string_view &user_key, const std::string_view &value, uint64_t ttl, int *ret) {
         std::vector<StringPair> pairs{StringPair{user_key, value}};
         return MSetNX(pairs, ttl, ret);
     }
 
-    rocksdb::Status RedisString::SetXX(const std::string_view &user_key, const std::string_view &value, uint64_t ttl, int *ret) {
+    rocksdb::Status RedisDB::SetXX(const std::string_view &user_key, const std::string_view &value, uint64_t ttl, int *ret) {
         *ret = 0;
         int exists = 0;
         uint64_t expire = 0;
@@ -245,7 +244,7 @@ namespace titandb {
     }
 
     rocksdb::Status
-    RedisString::SetRange(const std::string_view &user_key, size_t offset, const std::string_view &value, int *ret) {
+    RedisDB::SetRange(const std::string_view &user_key, size_t offset, const std::string_view &value, int *ret) {
         std::string ns_key;
         AppendNamespacePrefix(user_key, &ns_key);
 
@@ -285,7 +284,7 @@ namespace titandb {
         return updateRawValue(ns_key, raw_value);
     }
 
-    rocksdb::Status RedisString::IncrBy(const std::string_view &user_key, int64_t increment, int64_t *ret) {
+    rocksdb::Status RedisDB::IncrBy(const std::string_view &user_key, int64_t increment, int64_t *ret) {
         std::string ns_key, value;
         AppendNamespacePrefix(user_key, &ns_key);
 
@@ -321,7 +320,7 @@ namespace titandb {
         return updateRawValue(ns_key, raw_value);
     }
 
-    rocksdb::Status RedisString::IncrByFloat(const std::string_view &user_key, double increment, double *ret) {
+    rocksdb::Status RedisDB::IncrByFloat(const std::string_view &user_key, double increment, double *ret) {
         std::string ns_key, value;
         AppendNamespacePrefix(user_key, &ns_key);
         LockGuard guard(storage_->GetLockManager(), ns_key);
@@ -353,7 +352,7 @@ namespace titandb {
         return updateRawValue(ns_key, raw_value);
     }
 
-    rocksdb::Status RedisString::MSet(const std::vector<StringPair> &pairs, uint64_t ttl) {
+    rocksdb::Status RedisDB::MSet(const std::vector<StringPair> &pairs, uint64_t ttl) {
         uint64_t expire = 0;
         if (ttl > 0) {
             uint64_t now = turbo::ToUnixMillis(turbo::Now());
@@ -381,7 +380,7 @@ namespace titandb {
         return rocksdb::Status::OK();
     }
 
-    rocksdb::Status RedisString::MSetNX(const std::vector<StringPair> &pairs, uint64_t ttl, int *ret) {
+    rocksdb::Status RedisDB::MSetNX(const std::vector<StringPair> &pairs, uint64_t ttl, int *ret) {
         *ret = 0;
 
         uint64_t expire = 0;
@@ -429,7 +428,7 @@ namespace titandb {
     //  -1 if the user_key does not exist
     //  0 if the operation fails
     rocksdb::Status
-    RedisString::CAS(const std::string_view &user_key, const std::string_view &old_value, const std::string_view &new_value,
+    RedisDB::CAS(const std::string_view &user_key, const std::string_view &old_value, const std::string_view &new_value,
                      uint64_t ttl, int *ret) {
         *ret = 0;
 
@@ -471,7 +470,7 @@ namespace titandb {
 
     // Delete a specified user_key if the current value of the user_key matches a specified value.
     // For ret, same as CAS.
-    rocksdb::Status RedisString::CAD(const std::string_view &user_key, const std::string_view &value, int *ret) {
+    rocksdb::Status RedisDB::CAD(const std::string_view &user_key, const std::string_view &value, int *ret) {
         *ret = 0;
 
         std::string ns_key, current_value;

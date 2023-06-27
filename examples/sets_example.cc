@@ -41,12 +41,12 @@ int main() {
     int32_t ret = 0;
     std::vector<std::string_view> members{"MM1", "MM2", "MM3", "MM2"};
     auto sa = db.SAdd("SADD_KEY", members);
-    printf("SAdd return: %s, ret = %d\n", sa.status().ToString().c_str(), sa.value());
+    printf("SAdd return: %s, ret = %d\n", sa.status().ToString().c_str(), sa.status().ok() ? sa.value(): -10000);
 
     // SCard
     ret = 0;
     auto sc = db.SCard("SADD_KEY");
-    printf("SCard, return: %s, scard ret = %d\n", sc.status().ToString().c_str(), sc.value());
+    printf("SCard, return: %s, scard ret = %d\n", sc.status().ToString().c_str(), sc.status().ok() ? sc.value(): -10000);
 
     return 0;
 }

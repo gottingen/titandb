@@ -19,13 +19,7 @@
 namespace titandb {
     TitanDB::TitanDB(Storage *s, const std::string_view &ns) : _storage(s), _ns(ns.data(), ns.size()),
                                                                _config(_storage->GetConfig()) {
-        _strings_db = std::make_unique<RedisString>(_storage, _ns);
-        _bitmap_db = std::make_unique<RedisBitmap>(_storage, _ns);
-        _hash_db = std::make_unique<RedisHash>(_storage, _ns);
-        _key_db = std::make_unique<RedisDB>(_storage, _ns);
-        _list_db = std::make_unique<RedisList>(_storage, _ns);
-        _set_db = std::make_unique<RedisSet>(_storage, _ns);
-        _sorted_int_db = std::make_unique<RedisSortedInt>(_storage, _ns);
+        _db = std::make_unique<RedisDB>(_storage, _ns);
 
     }
 

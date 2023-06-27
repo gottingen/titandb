@@ -19,13 +19,13 @@
 #include <memory>
 
 #include "../test_base.h"
-#include "titandb/types/redis_list.h"
+#include "titandb/redis_db.h"
 
 using namespace titandb;
 
 class RedisListTest : public TestBase {
 protected:
-    explicit RedisListTest() { list_ = std::make_unique<titandb::RedisList>(storage_, "list_ns");  key_ = "test-list-key";
+    explicit RedisListTest() { list_ = std::make_unique<titandb::RedisDB>(storage_, "list_ns");  key_ = "test-list-key";
         fields_ = {"list-test-key-1", "list-test-key-2", "list-test-key-3", "list-test-key-4", "list-test-key-5",
                    "list-test-key-1", "list-test-key-2", "list-test-key-3", "list-test-key-4", "list-test-key-5",
                    "list-test-key-1", "list-test-key-2", "list-test-key-3", "list-test-key-4", "list-test-key-5",
@@ -34,7 +34,7 @@ protected:
     ~RedisListTest() override = default;
     
 
-    std::unique_ptr<titandb::RedisList> list_;
+    std::unique_ptr<titandb::RedisDB> list_;
 };
 
 class RedisListSpecificTest : public RedisListTest {

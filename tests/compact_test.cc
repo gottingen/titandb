@@ -20,8 +20,8 @@
 
 #include "titandb/storage/redis_metadata.h"
 #include "titandb/storage/storage.h"
-#include "titandb/types/redis_hash.h"
 #include "turbo/log/logging.h"
+#include "titandb/redis_db.h"
 
 using namespace titandb;
 
@@ -44,7 +44,7 @@ TEST_CASE("Compact, Filter") {
     TLOG_INFO("hash db init");
     std::string ns = "test_compact";
     REQUIRE(storage.get() != nullptr);
-    auto hash = std::make_unique<RedisHash>(storage.get(), ns);
+    auto hash = std::make_unique<RedisDB>(storage.get(), ns);
     TLOG_INFO("hash db created");
     std::string expired_hash_key = "expire_hash_key";
     std::string live_hash_key = "live_hash_key";

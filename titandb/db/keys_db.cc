@@ -20,7 +20,7 @@ namespace titandb {
 
     turbo::ResultStatus<RedisType> TitanDB::Type(const std::string_view &key) {
         RedisType ret;
-        auto s = _key_db->Type(key, &ret);
+        auto s = _db->Type(key, &ret);
         if (!s.ok()) {
             return turbo::Status{turbo::kUnavailable, s.ToString()};
         }
@@ -32,7 +32,7 @@ namespace titandb {
 
     turbo::ResultStatus<int64_t> TitanDB::TTL(const std::string_view &key) {
         int64_t ret;
-        auto s = _key_db->TTL(key, &ret);
+        auto s = _db->TTL(key, &ret);
         if (!s.ok()) {
             return turbo::Status{turbo::kUnavailable, s.ToString()};
         }
@@ -41,7 +41,7 @@ namespace titandb {
 
     turbo::ResultStatus<int64_t> TitanDB::PTTL(const std::string_view &key) {
         int64_t ret;
-        auto s = _key_db->TTL(key, &ret);
+        auto s = _db->TTL(key, &ret);
         if (!s.ok()) {
             return turbo::Status{turbo::kUnavailable, s.ToString()};
         }
@@ -50,7 +50,7 @@ namespace titandb {
 
     turbo::ResultStatus<std::vector<std::string>> TitanDB::Object(const std::string_view &key) {
         std::vector<std::string> ret;
-        auto s = _key_db->Dump(key, &ret);
+        auto s = _db->Dump(key, &ret);
         if (!s.ok()) {
             return turbo::Status{turbo::kUnavailable, s.ToString()};
         }
@@ -59,7 +59,7 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::Exists(const std::vector<std::string_view> &keys) {
         int ret;
-        auto s = _key_db->Exists(keys, &ret);
+        auto s = _db->Exists(keys, &ret);
         if (!s.ok()) {
             return turbo::Status{turbo::kUnavailable, s.ToString()};
         }
@@ -68,14 +68,14 @@ namespace titandb {
 
     turbo::ResultStatus<int> TitanDB::Persist(const std::string_view &key) {
         int64_t ttl = 0;
-        auto s = _key_db->TTL(key, &ttl);
+        auto s = _db->TTL(key, &ttl);
         if (!s.ok()) {
             return turbo::Status{turbo::kUnavailable, s.ToString()};
         }
         if (ttl == -1 || ttl == -2) {
             return 0;
         }
-        s = _key_db->Expire(key, 0);
+        s = _db->Expire(key, 0);
         if (!s.ok()) {
             return turbo::Status{turbo::kUnavailable, s.ToString()};
         }
@@ -83,7 +83,7 @@ namespace titandb {
     }
 
     turbo::ResultStatus<int> TitanDB::Expire(const std::string_view &key, int ttl) {
-        auto s = _key_db->Expire(key, turbo::ToUnixMillis(turbo::Now()) + ttl * 1000);
+        auto s = _db->Expire(key, turbo::ToUnixMillis(turbo::Now()) + ttl * 1000);
         if (!s.ok()) {
             return 0;
         }
@@ -91,7 +91,7 @@ namespace titandb {
     }
 
     turbo::ResultStatus<int> TitanDB::PExpire(const std::string_view &key, int64_t ttl) {
-        auto s = _key_db->Expire(key, turbo::ToUnixMillis(turbo::Now()) + ttl);
+        auto s = _db->Expire(key, turbo::ToUnixMillis(turbo::Now()) + ttl);
         if (!s.ok()) {
             return 0;
         }
@@ -99,7 +99,7 @@ namespace titandb {
     }
 
     turbo::ResultStatus<int> TitanDB::ExpireAt(const std::string_view &key, int ttl) {
-        auto s = _key_db->Expire(key, ttl * 1000);
+        auto s = _db->Expire(key, ttl * 1000);
         if (!s.ok()) {
             return 0;
         }
@@ -107,7 +107,7 @@ namespace titandb {
     }
 
     turbo::ResultStatus<int> TitanDB::PExpireAt(const std::string_view &key, int64_t ttl) {
-        auto s = _key_db->Expire(key, ttl * 1000);
+        auto s = _db->Expire(key, ttl * 1000);
         if (!s.ok()) {
             return 0;
         }
@@ -115,7 +115,7 @@ namespace titandb {
     }
 
     turbo::ResultStatus<int> TitanDB::Del(const std::string_view &key) {
-        auto s = _key_db->Del(key);
+        auto s = _db->Del(key);
         if (!s.ok()) {
             return 0;
         }
@@ -123,7 +123,7 @@ namespace titandb {
     }
 
     turbo::ResultStatus<int> TitanDB::Unlink(const std::string_view &key) {
-        auto s = _key_db->Del(key);
+        auto s = _db->Del(key);
         if (!s.ok()) {
             return 0;
         }

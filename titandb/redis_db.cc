@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 
-#include "titandb/storage/redis_db.h"
+#include "titandb/redis_db.h"
 
 #include <ctime>
 #include <map>
@@ -468,7 +468,7 @@ namespace titandb {
     }
 
     rocksdb::Status
-    SubKeyScanner::Scan(RedisType type, const Slice &user_key, const Slice &cursor, uint64_t limit,
+    RedisDB::SubKeyScanner(RedisType type, const Slice &user_key, const Slice &cursor, uint64_t limit,
                         const Slice &subkey_prefix, std::vector<std::string> *keys,
                         std::vector<std::string> *values) {
         uint64_t cnt = 0;

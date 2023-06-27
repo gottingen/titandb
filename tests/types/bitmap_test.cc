@@ -19,15 +19,15 @@
 #include <memory>
 
 #include "../test_base.h"
-#include "titandb/types/redis_bitmap.h"
+#include "titandb/redis_db.h"
 
 class RedisBitmapTest : public TestBase {
 protected:
-    explicit RedisBitmapTest() { bitmap_ = std::make_unique<titandb::RedisBitmap>(storage_, "bitmap_ns"); key_ = "test_bitmap_key"; }
+    explicit RedisBitmapTest() { bitmap_ = std::make_unique<titandb::RedisDB>(storage_, "bitmap_ns"); key_ = "test_bitmap_key"; }
 
     ~RedisBitmapTest() override = default;
 
-    std::unique_ptr<titandb::RedisBitmap> bitmap_;
+    std::unique_ptr<titandb::RedisDB> bitmap_;
 };
 
 TEST_CASE_FIXTURE(RedisBitmapTest, "GetAndSetBit") {
